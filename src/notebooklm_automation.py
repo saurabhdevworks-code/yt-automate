@@ -133,65 +133,110 @@ async def run(args):
                     await page.wait_for_timeout(3000)
                     break
 
-            # ── Step 2: Close ALL popups / modals ────────────────────
-            await close_all_modals(page)
-            await page.wait_for_timeout(1000)
+            # ── Step 2: Ensure modal is clean, but DO NOT close source picker ──
+            # Only dismiss onboarding banners like "Got it", "Dismiss", "Try it"
+            for dismiss_sel in ['button:has-text("Got it")', 'button:has-text("Dismiss")', 'button:has-text("Try it")']:
+                await safe_click(page, dismiss_sel, timeout=1000)
 
-            # ── Step 3: Upload source file ───────────────────────────
+            # ── Step 3: Add source (Multi-strategy: Copied Text / File Upload) ──
             source_files = [str(Path(s).resolve()) for s in args.sources]
             uploaded = False
 
-            # Method A: Hidden file input may already exist in the DOM
-            file_input = page.locator('input[type="file"]')
-            if await file_input.count():
-                await file_input.first.set_input_files(source_files)
-                uploaded = True
-                print("Uploaded via existing file input.")
+            # Wait briefly for UI to stabilize
+            await page.wait_for_timeout(2000)
 
-            # Method B: Click '+ Add sources' then 'Upload files' tab
+            # Strategy A: Check if "Copied text" or "Paste text" is visible
+            print("[NotebookLM] Checking source options...")
+            for text_opt in ['text="Copied text"', 'text="Paste text"', 'button:has-text("Copied text")', 'button:has-text("Paste text")', '[aria-label*="Copied text" i]']:
+                if await safe_click(page, text_opt, timeout=2500):
+                    print(f"[NotebookLM] Clicked '{text_opt}'. Pasting source text...")
+                    await page.wait_for_timeout(1000)
+                    try:
+                        source_text = Path(source_files[0]).read_text(encoding="utf-8")
+                    except Exception:
+                        source_text = "Educational Research Brief\n"
+                    
+                    pasted = False
+                    for txt_loc in ['textarea', '[contenteditable="true"]', 'input[type="text"]']:
+                        try:
+                            loc = page.locator(txt_loc).last
+                            if await loc.is_visible(timeout=2000):
+                                await loc.fill(source_text)
+                                pasted = True
+                                break
+                        except Exception:
+                            pass
+                    
+                    if pasted:
+                        await page.wait_for_timeout(1000)
+                        for ins in ['button:has-text("Insert")', 'button:has-text("Save")', 'button:has-text("Done")', 'button:has-text("Add")']:
+                            if await safe_click(page, ins, timeout=3000):
+                                uploaded = True
+                                print("[NotebookLM] Successfully added source via Copied Text!")
+                                break
+                    if uploaded:
+                        break
+
+            # Strategy B: Direct input[type="file"] in DOM
             if not uploaded:
-                await safe_click(page, 'button:has-text("Add sources")')
-                await page.wait_for_timeout(2000)
-
-                # Click the "Upload files" chip/tab in the source picker dialog
-                await safe_click(page, 'text="Upload files"', timeout=3000)
-                await page.wait_for_timeout(1000)
-
-                # Now check for file input again
                 file_input = page.locator('input[type="file"]')
                 if await file_input.count():
-                    await file_input.first.set_input_files(source_files)
-                    uploaded = True
-                    print("Uploaded via Add sources > Upload files file input.")
+                    try:
+                        await file_input.first.set_input_files(source_files)
+                        uploaded = True
+                        print("[NotebookLM] Uploaded via direct input[type='file'].")
+                    except Exception as e:
+                        print(f"[NotebookLM] Direct file input failed: {e}")
 
-            # Method C: Use file chooser event on the drag-drop zone
+            # Strategy C: Click "Upload files" / "Choose files"
+            if not uploaded:
+                for upload_btn in ['text="Upload files"', 'text="Choose files"', 'text="Computer"', 'button:has-text("Upload files")']:
+                    if await safe_click(page, upload_btn, timeout=2500):
+                        await page.wait_for_timeout(1000)
+                        file_input = page.locator('input[type="file"]')
+                        if await file_input.count():
+                            try:
+                                await file_input.first.set_input_files(source_files)
+                                uploaded = True
+                                print("[NotebookLM] Uploaded via Upload files card.")
+                                break
+                            except Exception:
+                                pass
+
+            # Strategy D: If dialog wasn't open, open it with "Add source" (singular) or "Add sources"
+            if not uploaded:
+                for add_sel in [
+                    'button:has-text("Add source")',
+                    'button:has-text("Add sources")',
+                    'button:has-text("+ Add source")',
+                    'button:has-text("+ Add sources")',
+                    '[aria-label*="Add source" i]',
+                    'text="Add source"',
+                    'text="Add sources"'
+                ]:
+                    if await safe_click(page, add_sel, timeout=2000):
+                        await page.wait_for_timeout(1500)
+                        file_input = page.locator('input[type="file"]')
+                        if await file_input.count():
+                            try:
+                                await file_input.first.set_input_files(source_files)
+                                uploaded = True
+                                print("[NotebookLM] Uploaded after clicking Add source button.")
+                                break
+                            except Exception:
+                                pass
+
+            # Strategy E: File chooser event
             if not uploaded:
                 try:
                     async with page.expect_file_chooser(timeout=5000) as fc:
-                        # Click the drag-drop upload area
-                        drop_zone = page.locator('text="Drag & drop your files to upload"').first
-                        if await drop_zone.is_visible(timeout=2000):
-                            await drop_zone.click()
-                        else:
-                            await safe_click(page, 'text="Upload files"', timeout=2000)
+                        for trigger in ['text="Upload files"', 'text="Choose files"', 'button:has-text("Upload")']:
+                            if await safe_click(page, trigger, timeout=2000):
+                                break
                     chooser = await fc.value
                     await chooser.set_files(source_files)
                     uploaded = True
-                    print("Uploaded via file chooser on drag-drop zone.")
-                except Exception:
-                    pass
-
-            # Method D: JavaScript to find ANY file input (even hidden)
-            if not uploaded:
-                try:
-                    has_input = await page.evaluate("""() => {
-                        const inp = document.querySelector('input[type="file"]');
-                        return inp !== null;
-                    }""")
-                    if has_input:
-                        await page.locator('input[type="file"]').first.set_input_files(source_files)
-                        uploaded = True
-                        print("Uploaded via JS-found hidden file input.")
+                    print("[NotebookLM] Uploaded via file chooser event.")
                 except Exception:
                     pass
 
