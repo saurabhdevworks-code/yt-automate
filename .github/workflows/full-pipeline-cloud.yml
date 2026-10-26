@@ -1,0 +1,107 @@
+name: Full NotebookLM Pipeline (100% Cloud Server - No PC Required)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *" # 09:00 IST daily
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install system dependencies & virtual screen
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb fonts-noto-color-emoji fonts-deva fonts-noto-core fonts-indic ffmpeg
+
+      - name: Install Python dependencies & Playwright
+        run: |
+          pip install -r requirements.txt
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Restore NotebookLM Session
+        env:
+          NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
+        run: |
+          if [ -n "$NOTEBOOKLM_AUTH_JSON" ]; then
+            echo "$NOTEBOOKLM_AUTH_JSON" > storage_state.json
+            echo "Session successfully restored from NOTEBOOKLM_AUTH_JSON secret."
+          else
+            echo "WARNING: NOTEBOOKLM_AUTH_JSON secret is not set! Automation may fail at login screen."
+          fi
+
+      - name: Generate research pack
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m src.generate_pack --settings config/settings.json --output output
+
+      - name: Find latest research pack
+        id: pack
+        run: |
+          d=$(ls -td output/research-* | head -1)
+          if [ -z "$d" ]; then echo "No research pack found" && exit 1; fi
+          echo "dir=$d" >> $GITHUB_OUTPUT
+
+      - name: Prepare NotebookLM files
+        run: |
+          d="${{ steps.pack.outputs.dir }}"
+          cp "$d/research_brief.md" output/notebooklm_research_brief.md
+          cp "$d/notebooklm_prompt.txt" output/notebooklm_prompt.txt
+          cp "$d/metadata.json" output/metadata.json
+
+      - name: Generate and download video from NotebookLM (Cloud)
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1440x1000x24" \
+            python -m src.notebooklm_automation \
+              --sources output/notebooklm_research_brief.md \
+              --prompt output/notebooklm_prompt.txt \
+              --storage-state storage_state.json \
+              --output output/notebooklm \
+              --timeout-minutes 75
+
+      - name: Create thumbnail when Devanagari font is configured
+        run: |
+          if [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
+            thumb_text=$(python -c "import json; print(json.load(open('output/metadata.json')).get('thumbnail_text', ''))")
+            if [ -n "$thumb_text" ]; then
+              python -m src.thumbnail --text "$thumb_text" --output output/thumbnail.jpg --font assets/fonts/NotoSansDevanagari-Bold.ttf || true
+            fi
+          fi
+
+      - name: Upload to YouTube privately
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -f output/thumbnail.jpg ]; then
+            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy private --thumbnail output/thumbnail.jpg --result output/upload_result.json
+          else
+            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy private --result output/upload_result.json
+          fi
+
+      - name: Save Pipeline Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-notebooklm-pipeline-results
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14

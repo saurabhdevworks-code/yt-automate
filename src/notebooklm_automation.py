@@ -1,5 +1,5 @@
 """Experimental NotebookLM UI automation via Playwright; not an official API."""
-import argparse, asyncio, os, time
+import argparse, asyncio, json, os, sys, time
 from pathlib import Path
 from playwright.async_api import async_playwright
 
@@ -69,17 +69,51 @@ async def run(args):
     out.mkdir(parents=True, exist_ok=True)
 
     async with async_playwright() as p:
-        ctx = await p.chromium.launch_persistent_context(
-            str(profile),
-            headless=False,
-            channel="chrome",
-            accept_downloads=True,
-            viewport={"width": 1440, "height": 1000},
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-            ],
-        )
+        storage_state_file = getattr(args, "storage_state", None)
+        if not storage_state_file and Path("storage_state.json").exists():
+            storage_state_file = "storage_state.json"
+
+        browser_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+        ]
+
+        launch_kwargs = {
+            "headless": getattr(args, "headless", False),
+            "accept_downloads": True,
+            "viewport": {"width": 1440, "height": 1000},
+            "args": browser_args,
+        }
+
+        if sys.platform.startswith("win") and not getattr(args, "headless", False):
+            try:
+                ctx = await p.chromium.launch_persistent_context(
+                    str(profile),
+                    channel="chrome",
+                    **launch_kwargs
+                )
+            except Exception:
+                ctx = await p.chromium.launch_persistent_context(
+                    str(profile),
+                    **launch_kwargs
+                )
+        else:
+            ctx = await p.chromium.launch_persistent_context(
+                str(profile),
+                **launch_kwargs
+            )
+
+        if storage_state_file and Path(storage_state_file).exists():
+            try:
+                state_data = json.loads(Path(storage_state_file).read_text(encoding="utf-8"))
+                cookies = state_data.get("cookies", [])
+                if cookies:
+                    await ctx.add_cookies(cookies)
+                    print(f"[NotebookLM] Injected {len(cookies)} session cookies from {storage_state_file}")
+            except Exception as e:
+                print(f"[NotebookLM] Warning loading cookies: {e}")
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         try:
             # ── Navigate ─────────────────────────────────────────────
@@ -283,6 +317,8 @@ def main():
     )
     ap.add_argument("--output", default="output/notebooklm")
     ap.add_argument("--timeout-minutes", type=int, default=75)
+    ap.add_argument("--storage-state", default=None, help="Path to storage_state.json")
+    ap.add_argument("--headless", action="store_true", default=False)
     asyncio.run(run(ap.parse_args()))
 
 
