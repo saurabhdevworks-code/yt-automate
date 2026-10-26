@@ -38,31 +38,79 @@ async def run(args):
             await page.wait_for_timeout(2500)
             if "accounts.google.com" in page.url:
                 raise RuntimeError("Not signed in. Run scripts/notebooklm_login.py once on this Windows runner.")
-            # Create a notebook if the UI exposes a create control.
-            for label in ["Create new notebook", "Create new", "New notebook"]:
+            # Close any initial onboarding/intro modal if present
+            for close_btn in await page.locator('button[aria-label="Close"], button:has-text("close"), button:has-text("Try it"), button:has-text("Got it")').all():
                 try:
-                    loc = page.get_by_text(label, exact=False)
-                    if await loc.count():
+                    if await close_btn.is_visible():
+                        await close_btn.click()
+                        await page.wait_for_timeout(500)
+                except Exception:
+                    pass
+
+            # Create a notebook if on the home screen
+            for label in ["New notebook", "Create notebook", "Create new notebook"]:
+                try:
+                    loc = page.locator(f'button:has-text("{label}")')
+                    if await loc.count() and await loc.first.is_visible():
                         await loc.first.click(timeout=3000)
-                        await page.wait_for_timeout(2000)
+                        await page.wait_for_timeout(3000)
                         break
                 except Exception:
                     pass
-            await click_any(page, ["Add sources", "Add source"])
-            await page.wait_for_timeout(1000)
+
+            # Check if file upload input already exists in the DOM
             file_input = page.locator('input[type="file"]')
             if not await file_input.count():
-                await click_any(page, ["Upload sources", "Upload files", "Upload"])
-                await page.wait_for_timeout(700)
+                # Look for Add sources button or upload triggers
+                for add_sel in ['button:has-text("Add sources")', 'button:has-text("Add source")', 'button:has-text("Upload")', '[aria-label*="Add source"]', 'text="Upload sources"']:
+                    try:
+                        loc = page.locator(add_sel)
+                        if await loc.count() and await loc.first.is_visible():
+                            await loc.first.click(timeout=3000)
+                            await page.wait_for_timeout(1000)
+                            break
+                    except Exception:
+                        pass
                 file_input = page.locator('input[type="file"]')
+
+            if not await file_input.count():
+                # Sometimes upload button needs a click on "Upload files" card
+                for card in ['text="Upload files"', 'text="Choose files"', 'text="Computer"']:
+                    try:
+                        loc = page.locator(card)
+                        if await loc.count() and await loc.first.is_visible():
+                            await loc.first.click(timeout=2000)
+                            await page.wait_for_timeout(1000)
+                            break
+                    except Exception:
+                        pass
+                file_input = page.locator('input[type="file"]')
+
             if not await file_input.count():
                 raise RuntimeError("Could not locate NotebookLM source upload input; UI selectors may have changed.")
             await file_input.first.set_input_files([str(Path(s).resolve()) for s in args.sources])
             await page.wait_for_timeout(5000)
-            await click_any(page, ["Studio"])
-            await page.wait_for_timeout(1000)
-            await click_any(page, ["Video Overview", "Video overview"])
-            await page.wait_for_timeout(1500)
+
+            # Navigate to Studio / Video Overview
+            for studio_btn in ['button:has-text("Studio")', 'text="Studio"', '[aria-label="Studio"]']:
+                try:
+                    loc = page.locator(studio_btn)
+                    if await loc.count() and await loc.first.is_visible():
+                        await loc.first.click(timeout=3000)
+                        await page.wait_for_timeout(1500)
+                        break
+                except Exception:
+                    pass
+
+            for video_btn in ['button:has-text("Video Overview")', 'text="Video Overview"', 'button:has-text("Video")', 'text="Video"']:
+                try:
+                    loc = page.locator(video_btn)
+                    if await loc.count() and await loc.first.is_visible():
+                        await loc.first.click(timeout=3000)
+                        await page.wait_for_timeout(1500)
+                        break
+                except Exception:
+                    pass
             prompt = Path(args.prompt).read_text(encoding="utf-8")
             for sel in ["textarea", '[contenteditable="true"]', 'input[type="text"]']:
                 loc = page.locator(sel)
