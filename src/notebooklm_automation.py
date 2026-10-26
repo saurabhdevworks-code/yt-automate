@@ -128,34 +128,99 @@ async def run(args):
                 )
 
             # ── Step 1: Create a new notebook ────────────────────────
-            for label in ["New notebook", "Create notebook"]:
-                if await safe_click(page, f'button:has-text("{label}")'):
-                    await page.wait_for_timeout(3000)
+            print("[NotebookLM] Creating new notebook...")
+            # Look for '+ New notebook', 'New notebook', or 'Create notebook'
+            created = False
+            for sel in [
+                'button:has-text("New notebook")',
+                'button:has-text("+ New notebook")',
+                'button:has-text("Create notebook")',
+                '[aria-label*="New notebook" i]',
+                '[aria-label*="Create" i]',
+            ]:
+                if await safe_click(page, sel, timeout=3000):
+                    print(f"[NotebookLM] Clicked '{sel}'")
+                    created = True
+                    await page.wait_for_timeout(3500)
                     break
 
-            # ── Step 2: Ensure modal is clean, but DO NOT close source picker ──
-            # Only dismiss onboarding banners like "Got it", "Dismiss", "Try it"
-            for dismiss_sel in ['button:has-text("Got it")', 'button:has-text("Dismiss")', 'button:has-text("Try it")']:
-                await safe_click(page, dismiss_sel, timeout=1000)
+            if not created and "notebook/" not in page.url:
+                try:
+                    await page.locator('text="New notebook"').first.click(timeout=3000)
+                    await page.wait_for_timeout(3500)
+                except Exception:
+                    pass
 
-            # ── Step 3: Add source (Multi-strategy: Copied Text / File Upload) ──
+            print(f"[NotebookLM] Current URL: {page.url}")
+
+            # ── Step 2: Dismiss Gemini Notebook Flexibility/Onboarding Modal ──
+            # The 'We\'re giving you more flexibility...' modal appears over the new notebook.
+            print("[NotebookLM] Checking for flexibility / onboarding modal...")
+            for _ in range(3):
+                await page.keyboard.press("Escape")
+                await page.wait_for_timeout(400)
+
+                for close_sel in [
+                    'div[role="dialog"] button[aria-label*="close" i]',
+                    'div[role="dialog"] button:has-text("close")',
+                    'div[role="dialog"] button:has(svg)',
+                    'button[aria-label="Close"]',
+                    'button:has-text("close")',
+                    'button:has-text("Got it")',
+                    'button:has-text("Dismiss")',
+                ]:
+                    if await safe_click(page, close_sel, timeout=500):
+                        print(f"[NotebookLM] Closed modal via '{close_sel}'")
+                        await page.wait_for_timeout(500)
+
+            # ── Step 3: Open Source Picker if not already open ───────
+            # In NotebookLM, the left panel has 'Sources' with a '+' button and 'Drop files here'
+            print("[NotebookLM] Opening source picker...")
+            source_dialog_open = False
+            for opt in ['text="Copied text"', 'text="Paste text"', 'text="Upload files"', 'text="Choose files"']:
+                try:
+                    if await page.locator(opt).first.is_visible(timeout=1000):
+                        source_dialog_open = True
+                        print(f"[NotebookLM] Source picker already visible ({opt})")
+                        break
+                except Exception:
+                    pass
+
+            if not source_dialog_open:
+                for add_sel in [
+                    'text="Drop files here"',
+                    'button:has-text("+")',
+                    '[aria-label*="Add source" i]',
+                    '[aria-label*="Add sources" i]',
+                    'button:has-text("Add source")',
+                    'button:has-text("Add sources")',
+                    'button:has-text("+ Add source")',
+                ]:
+                    if await safe_click(page, add_sel, timeout=2000):
+                        print(f"[NotebookLM] Clicked '{add_sel}' to open source picker.")
+                        await page.wait_for_timeout(2000)
+                        break
+
+            # ── Step 4: Add Source (Copied Text / File Upload) ─────────
             source_files = [str(Path(s).resolve()) for s in args.sources]
             uploaded = False
 
-            # Wait briefly for UI to stabilize
-            await page.wait_for_timeout(2000)
-
-            # Strategy A: Check if "Copied text" or "Paste text" is visible
-            print("[NotebookLM] Checking source options...")
-            for text_opt in ['text="Copied text"', 'text="Paste text"', 'button:has-text("Copied text")', 'button:has-text("Paste text")', '[aria-label*="Copied text" i]']:
-                if await safe_click(page, text_opt, timeout=2500):
-                    print(f"[NotebookLM] Clicked '{text_opt}'. Pasting source text...")
+            # Strategy A: 'Copied text' / 'Paste text' (Most reliable, zero file DOM issues)
+            for text_sel in [
+                'text="Copied text"',
+                'text="Paste text"',
+                'button:has-text("Copied text")',
+                'button:has-text("Paste text")',
+                '[aria-label*="Copied text" i]',
+            ]:
+                if await safe_click(page, text_sel, timeout=2500):
+                    print(f"[NotebookLM] Clicked '{text_sel}'. Pasting brief...")
                     await page.wait_for_timeout(1000)
                     try:
                         source_text = Path(source_files[0]).read_text(encoding="utf-8")
                     except Exception:
                         source_text = "Educational Research Brief\n"
-                    
+
                     pasted = False
                     for txt_loc in ['textarea', '[contenteditable="true"]', 'input[type="text"]']:
                         try:
@@ -163,21 +228,22 @@ async def run(args):
                             if await loc.is_visible(timeout=2000):
                                 await loc.fill(source_text)
                                 pasted = True
+                                print("[NotebookLM] Pasted research text into source field.")
                                 break
                         except Exception:
                             pass
-                    
+
                     if pasted:
                         await page.wait_for_timeout(1000)
                         for ins in ['button:has-text("Insert")', 'button:has-text("Save")', 'button:has-text("Done")', 'button:has-text("Add")']:
                             if await safe_click(page, ins, timeout=3000):
                                 uploaded = True
-                                print("[NotebookLM] Successfully added source via Copied Text!")
+                                print("[NotebookLM] Clicked Insert/Save for Copied Text!")
                                 break
                     if uploaded:
                         break
 
-            # Strategy B: Direct input[type="file"] in DOM
+            # Strategy B: Direct input[type='file'] in DOM
             if not uploaded:
                 file_input = page.locator('input[type="file"]')
                 if await file_input.count():
@@ -188,10 +254,10 @@ async def run(args):
                     except Exception as e:
                         print(f"[NotebookLM] Direct file input failed: {e}")
 
-            # Strategy C: Click "Upload files" / "Choose files"
+            # Strategy C: Click 'Upload files' card / tab
             if not uploaded:
-                for upload_btn in ['text="Upload files"', 'text="Choose files"', 'text="Computer"', 'button:has-text("Upload files")']:
-                    if await safe_click(page, upload_btn, timeout=2500):
+                for upload_card in ['text="Upload files"', 'text="Choose files"', 'text="Computer"', 'button:has-text("Upload files")']:
+                    if await safe_click(page, upload_card, timeout=2500):
                         await page.wait_for_timeout(1000)
                         file_input = page.locator('input[type="file"]')
                         if await file_input.count():
@@ -203,35 +269,12 @@ async def run(args):
                             except Exception:
                                 pass
 
-            # Strategy D: If dialog wasn't open, open it with "Add source" (singular) or "Add sources"
-            if not uploaded:
-                for add_sel in [
-                    'button:has-text("Add source")',
-                    'button:has-text("Add sources")',
-                    'button:has-text("+ Add source")',
-                    'button:has-text("+ Add sources")',
-                    '[aria-label*="Add source" i]',
-                    'text="Add source"',
-                    'text="Add sources"'
-                ]:
-                    if await safe_click(page, add_sel, timeout=2000):
-                        await page.wait_for_timeout(1500)
-                        file_input = page.locator('input[type="file"]')
-                        if await file_input.count():
-                            try:
-                                await file_input.first.set_input_files(source_files)
-                                uploaded = True
-                                print("[NotebookLM] Uploaded after clicking Add source button.")
-                                break
-                            except Exception:
-                                pass
-
-            # Strategy E: File chooser event
+            # Strategy D: Expect file chooser
             if not uploaded:
                 try:
-                    async with page.expect_file_chooser(timeout=5000) as fc:
-                        for trigger in ['text="Upload files"', 'text="Choose files"', 'button:has-text("Upload")']:
-                            if await safe_click(page, trigger, timeout=2000):
+                    async with page.expect_file_chooser(timeout=4000) as fc:
+                        for trg in ['text="Upload files"', 'text="Choose files"', 'button:has-text("Upload")', 'text="Drop files here"']:
+                            if await safe_click(page, trg, timeout=2000):
                                 break
                     chooser = await fc.value
                     await chooser.set_files(source_files)
@@ -249,11 +292,12 @@ async def run(args):
                 )
 
             # Wait for NotebookLM to ingest the sources
-            print("Sources uploaded. Waiting for ingestion...")
+            print("[NotebookLM] Source added! Waiting 15s for ingestion...")
             await page.wait_for_timeout(15000)
 
-            # ── Step 4: Close any new modals that appeared after upload ──
-            await close_all_modals(page)
+            # Dismiss any leftover modal after adding source
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(500)
 
             # ── Step 5: Click Video Overview in Studio panel ─────────
             # Studio panel is on the right side; Video Overview is one of
