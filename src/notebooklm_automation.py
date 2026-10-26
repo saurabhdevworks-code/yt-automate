@@ -107,13 +107,47 @@ async def run(args):
 
         if storage_state_file and Path(storage_state_file).exists():
             try:
-                state_data = json.loads(Path(storage_state_file).read_text(encoding="utf-8"))
-                cookies = state_data.get("cookies", [])
-                if cookies:
-                    await ctx.add_cookies(cookies)
-                    print(f"[NotebookLM] Injected {len(cookies)} session cookies from {storage_state_file}")
+                raw_text = Path(storage_state_file).read_text(encoding="utf-8").strip()
+                data = json.loads(raw_text)
+                raw_cookies = data if isinstance(data, list) else data.get("cookies", [])
+                
+                # Normalize cookies for Playwright from any export source (Cookie-Editor, EditThisCookie, etc.)
+                valid_cookies = []
+                for c in raw_cookies:
+                    if not isinstance(c, dict):
+                        continue
+                    cookie = dict(c)
+                    if "name" not in cookie or "value" not in cookie:
+                        continue
+                    
+                    # Ensure url or domain
+                    if "domain" not in cookie and "url" not in cookie:
+                        cookie["domain"] = ".google.com"
+
+                    # Normalize sameSite
+                    ss = str(cookie.get("sameSite", "")).lower()
+                    if "strict" in ss:
+                        cookie["sameSite"] = "Strict"
+                    elif "lax" in ss:
+                        cookie["sameSite"] = "Lax"
+                    elif "none" in ss or "no_restriction" in ss:
+                        cookie["sameSite"] = "None"
+                    else:
+                        cookie.pop("sameSite", None)
+
+                    # Remove non-standard fields that cause Playwright to reject
+                    for key in ["id", "hostOnly", "session", "storeId"]:
+                        cookie.pop(key, None)
+
+                    valid_cookies.append(cookie)
+
+                if valid_cookies:
+                    await ctx.add_cookies(valid_cookies)
+                    print(f"[NotebookLM] Successfully loaded {len(valid_cookies)} authenticated cookies from {storage_state_file}")
+                else:
+                    print(f"[NotebookLM] Warning: No valid cookies found in {storage_state_file}")
             except Exception as e:
-                print(f"[NotebookLM] Warning loading cookies: {e}")
+                print(f"[NotebookLM] Error loading cookies from {storage_state_file}: {e}")
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         try:
             # ── Navigate ─────────────────────────────────────────────
