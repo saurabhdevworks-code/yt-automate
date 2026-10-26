@@ -122,9 +122,19 @@ async def run(args):
             )
             await page.wait_for_timeout(3000)
 
-            if "accounts.google.com" in page.url:
+            # Check if redirected to landing/trynow page
+            if "trynow" in page.url.lower():
+                print("[NotebookLM] Landed on /trynow promotional page. Trying to click 'Try now'...")
+                for try_btn in ['text="Try now"', 'text="Try NotebookLM"', 'button:has-text("Try now")', 'button:has-text("Try NotebookLM")', 'a:has-text("Try NotebookLM")', 'a:has-text("Try now")']:
+                    if await safe_click(page, try_btn, timeout=3000):
+                        await page.wait_for_timeout(4000)
+                        break
+
+            if "accounts.google.com" in page.url or "trynow" in page.url.lower():
+                await page.screenshot(path=str(out / "notebooklm_not_signed_in.png"), full_page=True)
                 raise RuntimeError(
-                    "Not signed in. Run the Chrome login helper first."
+                    "Not signed in to NotebookLM! NOTEBOOKLM_AUTH_JSON secret is missing, empty, or expired. "
+                    "Please run 'python scripts/notebooklm_login.py' locally and save storage_state.json as NOTEBOOKLM_AUTH_JSON in GitHub Secrets."
                 )
 
             # ── Step 1: Create a new notebook ────────────────────────
