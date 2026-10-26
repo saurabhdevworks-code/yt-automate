@@ -3,23 +3,71 @@ import argparse, asyncio, os, time
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-async def click_any(page, labels, timeout=10000):
-    for label in labels:
-        for locator in (page.get_by_role("button", name=label, exact=False),
-                        page.get_by_text(label, exact=False)):
+
+async def safe_click(page, selector, timeout=5000):
+    """Try to click a locator; return True on success, False on failure."""
+    try:
+        loc = page.locator(selector).first
+        if await loc.is_visible(timeout=timeout):
+            await loc.click(timeout=timeout)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+async def close_all_modals(page, max_attempts=5):
+    """Dismiss every modal / popup / onboarding banner on the screen."""
+    for attempt in range(max_attempts):
+        # Method 1: Press Escape — works on almost every modal/dialog
+        await page.keyboard.press("Escape")
+        await page.wait_for_timeout(500)
+
+        # Method 2: Click the X button on the flexibility/onboarding modal
+        # The X is an SVG/icon button inside the modal overlay
+        try:
+            # Use JavaScript to find and click the modal close button
+            closed_js = await page.evaluate("""() => {
+                // Find buttons that look like close/dismiss
+                const buttons = document.querySelectorAll('button');
+                for (const btn of buttons) {
+                    const text = btn.textContent.trim().toLowerCase();
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    // The modal X button has text "close" (Material icon) or aria-label
+                    if ((text === 'close' || text === '✕' || text === '×' || label === 'close') 
+                        && btn.offsetParent !== null) {
+                        btn.click();
+                        return true;
+                    }
+                }
+                return false;
+            }""")
+            if closed_js:
+                await page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+        # Method 3: Click specific dismiss buttons
+        for sel in [
+            'button[aria-label="Close"]',
+            'button:has-text("Got it")',
+            'button:has-text("Dismiss")',
+        ]:
             try:
-                if await locator.count():
-                    await locator.first.click(timeout=timeout)
-                    return
+                loc = page.locator(sel).first
+                if await loc.is_visible(timeout=300):
+                    await loc.click(timeout=1000)
+                    await page.wait_for_timeout(400)
             except Exception:
                 pass
-    raise RuntimeError(f"NotebookLM UI control not found: {labels}")
+
 
 async def run(args):
     profile = Path(args.profile).expanduser().resolve()
     profile.mkdir(parents=True, exist_ok=True)
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
+
     async with async_playwright() as p:
         ctx = await p.chromium.launch_persistent_context(
             str(profile),
@@ -29,116 +77,214 @@ async def run(args):
             viewport={"width": 1440, "height": 1000},
             args=[
                 "--disable-blink-features=AutomationControlled",
-                "--no-sandbox"
-            ]
+                "--no-sandbox",
+            ],
         )
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         try:
-            await page.goto("https://notebooklm.google.com/", wait_until="domcontentloaded")
-            await page.wait_for_timeout(2500)
+            # ── Navigate ─────────────────────────────────────────────
+            await page.goto(
+                "https://notebooklm.google.com/", wait_until="networkidle"
+            )
+            await page.wait_for_timeout(3000)
+
             if "accounts.google.com" in page.url:
-                raise RuntimeError("Not signed in. Run scripts/notebooklm_login.py once on this Windows runner.")
-            # 1. Close any onboarding/flexibility popup modal
-            await page.wait_for_timeout(2000)
-            modal_close = page.locator('button[aria-label="Close"], button:has-text("close"), .close-button, [aria-label*="close" i]')
-            for i in range(await modal_close.count()):
+                raise RuntimeError(
+                    "Not signed in. Run the Chrome login helper first."
+                )
+
+            # ── Step 1: Create a new notebook ────────────────────────
+            for label in ["New notebook", "Create notebook"]:
+                if await safe_click(page, f'button:has-text("{label}")'):
+                    await page.wait_for_timeout(3000)
+                    break
+
+            # ── Step 2: Close ALL popups / modals ────────────────────
+            await close_all_modals(page)
+            await page.wait_for_timeout(1000)
+
+            # ── Step 3: Upload source file ───────────────────────────
+            source_files = [str(Path(s).resolve()) for s in args.sources]
+            uploaded = False
+
+            # Method A: Hidden file input may already exist in the DOM
+            file_input = page.locator('input[type="file"]')
+            if await file_input.count():
+                await file_input.first.set_input_files(source_files)
+                uploaded = True
+                print("Uploaded via existing file input.")
+
+            # Method B: Click '+ Add sources' then 'Upload files' tab
+            if not uploaded:
+                await safe_click(page, 'button:has-text("Add sources")')
+                await page.wait_for_timeout(2000)
+
+                # Click the "Upload files" chip/tab in the source picker dialog
+                await safe_click(page, 'text="Upload files"', timeout=3000)
+                await page.wait_for_timeout(1000)
+
+                # Now check for file input again
+                file_input = page.locator('input[type="file"]')
+                if await file_input.count():
+                    await file_input.first.set_input_files(source_files)
+                    uploaded = True
+                    print("Uploaded via Add sources > Upload files file input.")
+
+            # Method C: Use file chooser event on the drag-drop zone
+            if not uploaded:
                 try:
-                    btn = modal_close.nth(i)
-                    if await btn.is_visible():
-                        await btn.click()
-                        await page.wait_for_timeout(500)
+                    async with page.expect_file_chooser(timeout=5000) as fc:
+                        # Click the drag-drop upload area
+                        drop_zone = page.locator('text="Drag & drop your files to upload"').first
+                        if await drop_zone.is_visible(timeout=2000):
+                            await drop_zone.click()
+                        else:
+                            await safe_click(page, 'text="Upload files"', timeout=2000)
+                    chooser = await fc.value
+                    await chooser.set_files(source_files)
+                    uploaded = True
+                    print("Uploaded via file chooser on drag-drop zone.")
                 except Exception:
                     pass
 
-            # 2. Add Sources: click the main '+ Add sources' button on the left sidebar
-            add_src = page.locator('button:has-text("Add sources"), [aria-label*="Add sources" i]').first
-            if await add_src.is_visible():
-                await add_src.click()
-                await page.wait_for_timeout(2000)
+            # Method D: JavaScript to find ANY file input (even hidden)
+            if not uploaded:
+                try:
+                    has_input = await page.evaluate("""() => {
+                        const inp = document.querySelector('input[type="file"]');
+                        return inp !== null;
+                    }""")
+                    if has_input:
+                        await page.locator('input[type="file"]').first.set_input_files(source_files)
+                        uploaded = True
+                        print("Uploaded via JS-found hidden file input.")
+                except Exception:
+                    pass
 
-            # 3. Handle file upload (either direct file input or click Choose files/Upload)
-            file_input = page.locator('input[type="file"]')
-            if not await file_input.count():
-                for upload_trigger in ['text="Choose files"', 'text="Upload files"', 'button:has-text("Upload")', '[aria-label*="Upload" i]', 'text="Computer"']:
+            if not uploaded:
+                await page.screenshot(
+                    path=str(out / "notebooklm_failure_upload.png"), full_page=True
+                )
+                raise RuntimeError(
+                    "Could not upload sources. See notebooklm_failure_upload.png"
+                )
+
+            # Wait for NotebookLM to ingest the sources
+            print("Sources uploaded. Waiting for ingestion...")
+            await page.wait_for_timeout(15000)
+
+            # ── Step 4: Close any new modals that appeared after upload ──
+            await close_all_modals(page)
+
+            # ── Step 5: Click Video Overview in Studio panel ─────────
+            # Studio panel is on the right side; Video Overview is one of
+            # the artifact cards (along with Audio Overview, Slide Deck, etc.)
+            # First check if "Video Overview" text is directly visible
+            video_clicked = False
+            for sel in [
+                'text="Video Overview"',
+                'button:has-text("Video Overview")',
+                'text="Video"',
+            ]:
+                if await safe_click(page, sel, timeout=3000):
+                    video_clicked = True
+                    print("Clicked Video Overview.")
+                    await page.wait_for_timeout(2000)
+                    break
+
+            if not video_clicked:
+                # Maybe Studio panel needs to be expanded first
+                await safe_click(page, 'text="Studio"', timeout=2000)
+                await page.wait_for_timeout(1500)
+                for sel in [
+                    'text="Video Overview"',
+                    'button:has-text("Video")',
+                ]:
+                    if await safe_click(page, sel, timeout=3000):
+                        video_clicked = True
+                        print("Clicked Video Overview (after expanding Studio).")
+                        await page.wait_for_timeout(2000)
+                        break
+
+            if not video_clicked:
+                await page.screenshot(
+                    path=str(out / "notebooklm_failure_video.png"), full_page=True
+                )
+                raise RuntimeError(
+                    "Could not find Video Overview button. See screenshot."
+                )
+
+            # ── Step 6: Fill optional prompt ─────────────────────────
+            prompt_text = Path(args.prompt).read_text(encoding="utf-8").strip()
+            if prompt_text:
+                for sel in ["textarea", '[contenteditable="true"]']:
                     try:
-                        trig = page.locator(upload_trigger).first
-                        if await trig.is_visible():
-                            await trig.click()
-                            await page.wait_for_timeout(1000)
-                            break
+                        loc = page.locator(sel)
+                        for i in range(min(await loc.count(), 5)):
+                            item = loc.nth(i)
+                            if await item.is_visible(timeout=1000):
+                                await item.fill(prompt_text)
+                                print("Filled prompt field.")
+                                break
                     except Exception:
                         pass
-                file_input = page.locator('input[type="file"]')
 
-            if not await file_input.count():
-                # Try setting file on filechooser event by clicking upload card
-                async with page.expect_file_chooser(timeout=5000) as fc_info:
-                    await page.locator('text="Upload files", text="Choose files", button:has-text("Upload")').first.click()
-                file_chooser = await fc_info.value
-                await file_chooser.set_files([str(Path(s).resolve()) for s in args.sources])
-            else:
-                await file_input.first.set_input_files([str(Path(s).resolve()) for s in args.sources])
-            
-            print("Uploaded source files successfully. Waiting for ingestion...")
-            await page.wait_for_timeout(10000)
+            # ── Step 7: Click Generate ───────────────────────────────
+            for gen_label in ["Generate now", "Generate", "Create"]:
+                if await safe_click(page, f'button:has-text("{gen_label}")', timeout=3000):
+                    print(f"Clicked '{gen_label}'. Waiting for video generation...")
+                    break
 
-            # 4. Trigger Video Overview in Studio panel (right side)
-            video_btn = page.locator('button:has-text("Video"), [aria-label*="Video" i], text="Video Overview"').first
-            if await video_btn.is_visible():
-                await video_btn.click()
-                await page.wait_for_timeout(2000)
-            prompt = Path(args.prompt).read_text(encoding="utf-8")
-            for sel in ["textarea", '[contenteditable="true"]', 'input[type="text"]']:
-                loc = page.locator(sel)
-                try:
-                    for i in range(min(await loc.count(), 10)):
-                        item = loc.nth(i)
-                        if await item.is_visible():
-                            desc = ((await item.get_attribute("placeholder")) or "") + " " + ((await item.get_attribute("aria-label")) or "")
-                            if any(x in desc.lower() for x in ["prompt", "instruction", "topic", "custom"]):
-                                await item.fill(prompt)
-                                break
-                except Exception:
-                    pass
-            try:
-                await click_any(page, ["Language", "Output language"], timeout=2500)
-                await click_any(page, ["Hindi"], timeout=2500)
-            except Exception:
-                print("WARNING: Hindi language selector not detected; inspect NotebookLM settings.")
-            await click_any(page, ["Generate now", "Generate", "Create"])
+            # ── Step 8: Wait for video and download ──────────────────
             deadline = time.time() + args.timeout_minutes * 60
             while time.time() < deadline:
                 await page.wait_for_timeout(15000)
-                try:
-                    async with page.expect_download(timeout=3000) as info:
-                        await click_any(page, ["Download video", "Download overview", "Download"], timeout=2500)
-                    dl = await info.value
-                    target = out / "notebooklm_video.mp4"
-                    await dl.save_as(target)
-                    if target.exists() and target.stat().st_size > 100000:
-                        print(f"Downloaded NotebookLM video: {target}")
-                        return
-                except Exception:
-                    pass
+                # Check for download button
+                for dl_label in ["Download video", "Download overview", "Download"]:
+                    try:
+                        dl_btn = page.locator(f'button:has-text("{dl_label}")').first
+                        if await dl_btn.is_visible(timeout=2000):
+                            async with page.expect_download(timeout=30000) as dl_info:
+                                await dl_btn.click()
+                            dl = await dl_info.value
+                            target = out / "notebooklm_video.mp4"
+                            await dl.save_as(target)
+                            if target.exists() and target.stat().st_size > 100_000:
+                                print(f"Downloaded NotebookLM video: {target}")
+                                return
+                    except Exception:
+                        pass
+                print(f"Still generating... ({int(deadline - time.time())}s remaining)")
+
             raise TimeoutError("Video did not become downloadable before timeout.")
+
         except Exception:
             try:
-                await page.screenshot(path=str(out / "notebooklm_failure.png"), full_page=True)
-                (out / "notebooklm_failure_url.txt").write_text(page.url, encoding="utf-8")
+                await page.screenshot(
+                    path=str(out / "notebooklm_failure.png"), full_page=True
+                )
+                (out / "notebooklm_failure_url.txt").write_text(
+                    page.url, encoding="utf-8"
+                )
             except Exception:
                 pass
             raise
         finally:
             await ctx.close()
 
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sources", nargs="+", required=True)
     ap.add_argument("--prompt", required=True)
-    ap.add_argument("--profile", default=os.getenv("NOTEBOOKLM_PROFILE", r"C:\notebooklm-playwright-profile"))
+    ap.add_argument(
+        "--profile",
+        default=os.getenv("NOTEBOOKLM_PROFILE", r"C:\notebooklm-playwright-profile"),
+    )
     ap.add_argument("--output", default="output/notebooklm")
     ap.add_argument("--timeout-minutes", type=int, default=75)
     asyncio.run(run(ap.parse_args()))
+
 
 if __name__ == "__main__":
     main()
