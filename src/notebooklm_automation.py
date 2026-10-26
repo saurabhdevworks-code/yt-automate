@@ -22,8 +22,16 @@ async def run(args):
     out.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
         ctx = await p.chromium.launch_persistent_context(
-            str(profile), headless=False, accept_downloads=True,
-            viewport={"width": 1440, "height": 1000})
+            str(profile),
+            headless=False,
+            channel="chrome",
+            accept_downloads=True,
+            viewport={"width": 1440, "height": 1000},
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox"
+            ]
+        )
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         try:
             await page.goto("https://notebooklm.google.com/", wait_until="domcontentloaded")

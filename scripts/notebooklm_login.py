@@ -7,7 +7,15 @@ async def main():
     profile = Path(os.getenv("NOTEBOOKLM_PROFILE", r"C:\notebooklm-playwright-profile")).expanduser().resolve()
     profile.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        ctx = await p.chromium.launch_persistent_context(str(profile), headless=False)
+        ctx = await p.chromium.launch_persistent_context(
+            str(profile),
+            headless=False,
+            channel="chrome",
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox"
+            ]
+        )
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
         await page.goto("https://notebooklm.google.com/", wait_until="domcontentloaded")
         input("Sign in interactively in the browser. When NotebookLM is open, press Enter here.")
