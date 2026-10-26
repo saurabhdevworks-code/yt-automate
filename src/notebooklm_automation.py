@@ -38,35 +38,32 @@ async def run(args):
             await page.wait_for_timeout(2500)
             if "accounts.google.com" in page.url:
                 raise RuntimeError("Not signed in. Run scripts/notebooklm_login.py once on this Windows runner.")
-            # Close any initial onboarding/intro modal if present
-            for close_btn in await page.locator('button[aria-label="Close"], button:has-text("close"), button:has-text("Try it"), button:has-text("Got it")').all():
+            # 1. Close any onboarding/flexibility popup modal
+            await page.wait_for_timeout(2000)
+            modal_close = page.locator('button[aria-label="Close"], button:has-text("close"), .close-button, [aria-label*="close" i]')
+            for i in range(await modal_close.count()):
                 try:
-                    if await close_btn.is_visible():
-                        await close_btn.click()
+                    btn = modal_close.nth(i)
+                    if await btn.is_visible():
+                        await btn.click()
                         await page.wait_for_timeout(500)
                 except Exception:
                     pass
 
-            # Create a notebook if on the home screen
-            for label in ["New notebook", "Create notebook", "Create new notebook"]:
-                try:
-                    loc = page.locator(f'button:has-text("{label}")')
-                    if await loc.count() and await loc.first.is_visible():
-                        await loc.first.click(timeout=3000)
-                        await page.wait_for_timeout(3000)
-                        break
-                except Exception:
-                    pass
+            # 2. Add Sources: click the main '+ Add sources' button on the left sidebar
+            add_src = page.locator('button:has-text("Add sources"), [aria-label*="Add sources" i]').first
+            if await add_src.is_visible():
+                await add_src.click()
+                await page.wait_for_timeout(2000)
 
-            # Check if file upload input already exists in the DOM
+            # 3. Handle file upload (either direct file input or click Choose files/Upload)
             file_input = page.locator('input[type="file"]')
             if not await file_input.count():
-                # Look for Add sources button or upload triggers
-                for add_sel in ['button:has-text("Add sources")', 'button:has-text("Add source")', 'button:has-text("Upload")', '[aria-label*="Add source"]', 'text="Upload sources"']:
+                for upload_trigger in ['text="Choose files"', 'text="Upload files"', 'button:has-text("Upload")', '[aria-label*="Upload" i]', 'text="Computer"']:
                     try:
-                        loc = page.locator(add_sel)
-                        if await loc.count() and await loc.first.is_visible():
-                            await loc.first.click(timeout=3000)
+                        trig = page.locator(upload_trigger).first
+                        if await trig.is_visible():
+                            await trig.click()
                             await page.wait_for_timeout(1000)
                             break
                     except Exception:
@@ -74,43 +71,22 @@ async def run(args):
                 file_input = page.locator('input[type="file"]')
 
             if not await file_input.count():
-                # Sometimes upload button needs a click on "Upload files" card
-                for card in ['text="Upload files"', 'text="Choose files"', 'text="Computer"']:
-                    try:
-                        loc = page.locator(card)
-                        if await loc.count() and await loc.first.is_visible():
-                            await loc.first.click(timeout=2000)
-                            await page.wait_for_timeout(1000)
-                            break
-                    except Exception:
-                        pass
-                file_input = page.locator('input[type="file"]')
+                # Try setting file on filechooser event by clicking upload card
+                async with page.expect_file_chooser(timeout=5000) as fc_info:
+                    await page.locator('text="Upload files", text="Choose files", button:has-text("Upload")').first.click()
+                file_chooser = await fc_info.value
+                await file_chooser.set_files([str(Path(s).resolve()) for s in args.sources])
+            else:
+                await file_input.first.set_input_files([str(Path(s).resolve()) for s in args.sources])
+            
+            print("Uploaded source files successfully. Waiting for ingestion...")
+            await page.wait_for_timeout(10000)
 
-            if not await file_input.count():
-                raise RuntimeError("Could not locate NotebookLM source upload input; UI selectors may have changed.")
-            await file_input.first.set_input_files([str(Path(s).resolve()) for s in args.sources])
-            await page.wait_for_timeout(5000)
-
-            # Navigate to Studio / Video Overview
-            for studio_btn in ['button:has-text("Studio")', 'text="Studio"', '[aria-label="Studio"]']:
-                try:
-                    loc = page.locator(studio_btn)
-                    if await loc.count() and await loc.first.is_visible():
-                        await loc.first.click(timeout=3000)
-                        await page.wait_for_timeout(1500)
-                        break
-                except Exception:
-                    pass
-
-            for video_btn in ['button:has-text("Video Overview")', 'text="Video Overview"', 'button:has-text("Video")', 'text="Video"']:
-                try:
-                    loc = page.locator(video_btn)
-                    if await loc.count() and await loc.first.is_visible():
-                        await loc.first.click(timeout=3000)
-                        await page.wait_for_timeout(1500)
-                        break
-                except Exception:
-                    pass
+            # 4. Trigger Video Overview in Studio panel (right side)
+            video_btn = page.locator('button:has-text("Video"), [aria-label*="Video" i], text="Video Overview"').first
+            if await video_btn.is_visible():
+                await video_btn.click()
+                await page.wait_for_timeout(2000)
             prompt = Path(args.prompt).read_text(encoding="utf-8")
             for sel in ["textarea", '[contenteditable="true"]', 'input[type="text"]']:
                 loc = page.locator(sel)
