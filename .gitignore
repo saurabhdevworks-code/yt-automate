@@ -1,0 +1,11 @@
+.env
+client_secret.json
+token.json
+*.token.json
+__pycache__/
+.pytest_cache/
+*.pyc
+output/*
+!output/.gitkeep
+assets/fonts/*
+!assets/fonts/README.md

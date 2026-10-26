@@ -1,0 +1,16 @@
+{
+  "niche": "AI and Technology",
+  "target_audience": "Hindi-speaking Indians aged 18-35",
+  "language": "Hindi",
+  "duration_min_minutes": 4,
+  "duration_max_minutes": 8,
+  "video_style": "Educational explainer",
+  "max_topics": 8,
+  "rss_feeds": [
+    "https://blog.google/technology/ai/rss/",
+    "https://www.technologyreview.com/feed/",
+    "https://feeds.bbci.co.uk/news/technology/rss.xml"
+  ],
+  "wikipedia_language": "en",
+  "youtube_category_id": "27"
+}

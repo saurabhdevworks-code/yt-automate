@@ -1,0 +1,69 @@
+name: Full NotebookLM Pipeline (Windows self-hosted)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 3 * * *" # 09:00 IST
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    # Register a Windows runner with custom label "notebooklm".
+    # Run it interactively in a logged-in desktop session, not as a Windows service.
+    runs-on: [self-hosted, Windows, X64, notebooklm]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          pip install -r requirements.txt
+          pip install playwright
+          python -m playwright install chromium
+      - name: Generate research pack
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        shell: pwsh
+        run: python -m src.generate_pack --settings config/settings.json --output output
+      - name: Find latest research pack
+        id: pack
+        shell: pwsh
+        run: |
+          $d = Get-ChildItem output -Directory -Filter "research-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $d) { throw "No research pack found." }
+          "dir=$($d.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Prepare NotebookLM files
+        shell: pwsh
+        run: |
+          $d = "${{ steps.pack.outputs.dir }}"
+          Copy-Item "$d\research_brief.md" "output\notebooklm_research_brief.md"
+          Copy-Item "$d\notebooklm_prompt.txt" "output\notebooklm_prompt.txt"
+          Copy-Item "$d\metadata.json" "output\metadata.json"
+      - name: Generate and download video from NotebookLM UI
+        shell: pwsh
+        env:
+          NOTEBOOKLM_PROFILE: ${{ vars.NOTEBOOKLM_PROFILE }}
+        run: |
+          if (-not $env:NOTEBOOKLM_PROFILE) { $env:NOTEBOOKLM_PROFILE = "C:\notebooklm-playwright-profile" }
+          python -m src.notebooklm_automation --sources "output\notebooklm_research_brief.md" --prompt "output\notebooklm_prompt.txt" --profile "$env:NOTEBOOKLM_PROFILE" --output "output\notebooklm" --timeout-minutes 75
+      - name: Upload to YouTube privately
+        shell: pwsh
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          python -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-notebooklm-pipeline-results
+          path: output/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,117 @@
+name: Upload NotebookLM Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: "Direct HTTPS download URL for the MP4 downloaded from NotebookLM"
+        required: true
+        type: string
+      metadata_json:
+        description: "One-line JSON metadata"
+        required: true
+        default: '{"title":"Hindi Educational Video","description":"Educational video generated using Google NotebookLM Video Overview.","tags":["Hindi","Education"],"category_id":"27","thumbnail_text":"आसान हिंदी में"}'
+        type: string
+      privacy:
+        description: "Start private; public is intentionally disabled by default"
+        required: true
+        default: private
+        type: choice
+        options: [private, unlisted]
+      background_url:
+        description: "Optional direct HTTPS image URL for thumbnail background"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Download NotebookLM MP4
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          from urllib.parse import urlparse
+          url = os.environ["VIDEO_URL"]
+          if urlparse(url).scheme != "https":
+              raise SystemExit("Only HTTPS URLs are accepted.")
+          with requests.get(url, stream=True, timeout=(20, 180)) as r:
+              r.raise_for_status()
+              if "text/html" in r.headers.get("content-type", "").lower():
+                  raise SystemExit("URL returned HTML, not a direct MP4 download.")
+              with open("notebooklm_video.mp4", "wb") as f:
+                  for chunk in r.iter_content(1024*1024):
+                      if chunk: f.write(chunk)
+          if os.path.getsize("notebooklm_video.mp4") < 100000:
+              raise SystemExit("Downloaded file is unexpectedly small.")
+          print("Downloaded bytes:", os.path.getsize("notebooklm_video.mp4"))
+          PY
+      - name: Write metadata JSON
+        env:
+          METADATA_JSON: ${{ inputs.metadata_json }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          obj = json.loads(os.environ["METADATA_JSON"])
+          Path("metadata.json").write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
+          PY
+      - name: Download optional thumbnail background
+        if: ${{ inputs.background_url != '' }}
+        env:
+          BG_URL: ${{ inputs.background_url }}
+        run: |
+          python - <<'PY'
+          import os, requests
+          from urllib.parse import urlparse
+          url = os.environ["BG_URL"]
+          if urlparse(url).scheme != "https": raise SystemExit("Only HTTPS image URLs are accepted.")
+          r = requests.get(url, timeout=60)
+          r.raise_for_status()
+          if not r.headers.get("content-type", "").lower().startswith("image/"):
+              raise SystemExit("Background URL did not return an image.")
+          open("thumbnail_background", "wb").write(r.content)
+          PY
+      - name: Create thumbnail when Devanagari font is configured
+        env:
+          THUMBNAIL_TEXT: ${{ fromJSON(inputs.metadata_json).thumbnail_text }}
+        run: |
+          if [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ]; then
+            if [ -f thumbnail_background ]; then
+              python -m src.thumbnail --text "${THUMBNAIL_TEXT:-आसान हिंदी में}" --background thumbnail_background --output thumbnail.jpg --font assets/fonts/NotoSansDevanagari-Bold.ttf
+            else
+              python -m src.thumbnail --text "${THUMBNAIL_TEXT:-आसान हिंदी में}" --output thumbnail.jpg --font assets/fonts/NotoSansDevanagari-Bold.ttf
+            fi
+          else
+            echo "Devanagari font missing; skipping custom thumbnail. Add a licensed font to assets/fonts."
+          fi
+      - name: Upload video to YouTube
+        env:
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+        run: |
+          if [ -f thumbnail.jpg ]; then
+            python -m src.youtube_upload --video notebooklm_video.mp4 --metadata metadata.json --privacy "${{ inputs.privacy }}" --thumbnail thumbnail.jpg --result upload_result.json
+          else
+            python -m src.youtube_upload --video notebooklm_video.mp4 --metadata metadata.json --privacy "${{ inputs.privacy }}" --result upload_result.json
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: youtube-upload-result
+          path: upload_result.json
+          if-no-files-found: ignore
+          retention-days: 30
