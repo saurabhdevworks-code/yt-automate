@@ -16,21 +16,17 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
       - name: Install dependencies
         shell: pwsh
         run: |
-          pip install -r requirements.txt
-          pip install playwright
-          python -m playwright install chromium
+          py -m pip install -r requirements.txt
+          py -m pip install playwright
+          py -m playwright install chromium
       - name: Generate research pack
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         shell: pwsh
-        run: python -m src.generate_pack --settings config/settings.json --output output
+        run: py -m src.generate_pack --settings config/settings.json --output output
       - name: Find latest research pack
         id: pack
         shell: pwsh
@@ -51,7 +47,7 @@ jobs:
           NOTEBOOKLM_PROFILE: ${{ vars.NOTEBOOKLM_PROFILE }}
         run: |
           if (-not $env:NOTEBOOKLM_PROFILE) { $env:NOTEBOOKLM_PROFILE = "C:\notebooklm-playwright-profile" }
-          python -m src.notebooklm_automation --sources "output\notebooklm_research_brief.md" --prompt "output\notebooklm_prompt.txt" --profile "$env:NOTEBOOKLM_PROFILE" --output "output\notebooklm" --timeout-minutes 75
+          py -m src.notebooklm_automation --sources "output\notebooklm_research_brief.md" --prompt "output\notebooklm_prompt.txt" --profile "$env:NOTEBOOKLM_PROFILE" --output "output\notebooklm" --timeout-minutes 75
       - name: Upload to YouTube privately
         shell: pwsh
         env:
@@ -59,7 +55,7 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
-          python -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+          py -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
