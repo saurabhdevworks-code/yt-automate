@@ -38,12 +38,16 @@ jobs:
         env:
           NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
         run: |
-          if [ -n "$NOTEBOOKLM_AUTH_JSON" ]; then
-            echo "$NOTEBOOKLM_AUTH_JSON" > storage_state.json
-            echo "Session successfully restored from NOTEBOOKLM_AUTH_JSON secret."
-          else
-            echo "WARNING: NOTEBOOKLM_AUTH_JSON secret is not set! Automation may fail at login screen."
-          fi
+          python -c '
+          import os, sys
+          val = os.environ.get("NOTEBOOKLM_AUTH_JSON", "").strip()
+          if val:
+              with open("storage_state.json", "w", encoding="utf-8") as f:
+                  f.write(val)
+              print(f"Session successfully restored from NOTEBOOKLM_AUTH_JSON secret ({len(val)} bytes).")
+          else:
+              print("WARNING: NOTEBOOKLM_AUTH_JSON secret is empty or not set!")
+          '
 
       - name: Generate research pack
         env:
