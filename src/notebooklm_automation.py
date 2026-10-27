@@ -306,40 +306,80 @@ async def run(args):
 
             # ── Step 1: Create a new notebook ────────────────────────
             print("[NotebookLM] Creating new notebook...")
-            # Look for '+ New notebook', 'New notebook', or 'Create notebook'
             created = False
             for sel in [
                 'button:has-text("New notebook")',
                 'button:has-text("+ New notebook")',
                 'button:has-text("Create notebook")',
+                'div[role="button"]:has-text("New notebook")',
                 '[aria-label*="New notebook" i]',
+                '[aria-label*="Create notebook" i]',
                 '[aria-label*="Create" i]',
             ]:
                 if await safe_click(page, sel, timeout=3000):
                     print(f"[NotebookLM] Clicked '{sel}'")
                     created = True
-                    await page.wait_for_timeout(3500)
                     break
 
-            if not created and "notebook/" not in page.url:
-                try:
-                    await page.locator('text="New notebook"').first.click(timeout=3000)
-                    await page.wait_for_timeout(3500)
-                except Exception:
-                    pass
+            # Wait for navigation to new notebook (/notebook/<id>)
+            print("[NotebookLM] Waiting for notebook URL (/notebook/)...")
+            try:
+                await page.wait_for_url(lambda u: "/notebook/" in u, timeout=25000)
+                print(f"[NotebookLM] Successfully opened notebook: {page.url}")
+            except Exception:
+                print(f"[NotebookLM] URL did not change yet (current: {page.url}). Trying alternate click...")
+                for fallback_sel in [
+                    'button:has-text("New notebook")',
+                    'div[role="button"]:has-text("New notebook")',
+                    'text="New notebook"',
+                    '[aria-label*="New notebook" i]',
+                ]:
+                    if await safe_click(page, fallback_sel, timeout=3000):
+                        try:
+                            await page.wait_for_url(lambda u: "/notebook/" in u, timeout=20000)
+                            print(f"[NotebookLM] Navigated to notebook: {page.url}")
+                            break
+                        except Exception:
+                            pass
 
             print(f"[NotebookLM] Current URL: {page.url}")
+            if "/notebook/" not in page.url:
+                await page.screenshot(path=str(out / "notebooklm_failure_create.png"), full_page=True)
+                raise RuntimeError(
+                    f"Failed to navigate into a new notebook! Still on {page.url}. "
+                    "See notebooklm_failure_create.png"
+                )
 
-            # ── Step 2: Dismiss Gemini Notebook Flexibility/Onboarding Modal ──
-            # The 'We\'re giving you more flexibility...' modal appears over the new notebook.
-            print("[NotebookLM] Checking for flexibility / onboarding modal...")
-            await close_all_modals(page, max_attempts=5)
+            # Allow workspace DOM to stabilize
+            await page.wait_for_timeout(3000)
+
+            # ── Step 2: Dismiss Onboarding Promo (ONLY promo, NEVER the Add Sources dialog) ──
+            print("[NotebookLM] Checking for promo / flexibility popup...")
+            try:
+                promo_dismiss_btn = page.locator(
+                    'div[role="dialog"]:has-text("flexibility") button, '
+                    'div[role="dialog"]:has-text("Gemini") button:has-text("Got it"), '
+                    'div[role="dialog"]:has-text("Gemini") button:has-text("Dismiss"), '
+                    'div[role="dialog"]:has-text("Gemini") button:has-text("Continue")'
+                ).first
+                if await promo_dismiss_btn.is_visible(timeout=2000):
+                    print("[NotebookLM] Found promo popup. Dismissing it...")
+                    await promo_dismiss_btn.click()
+                    await page.wait_for_timeout(1000)
+            except Exception:
+                pass
 
             # ── Step 3: Open Source Picker if not already open ───────
-            # In NotebookLM, the left panel has 'Sources' with a '+' button and 'Drop files here'
-            print("[NotebookLM] Opening source picker...")
+            print("[NotebookLM] Checking source picker dialog...")
             source_dialog_open = False
-            for opt in ['text="Copied text"', 'text="Paste text"', 'text="Upload files"', 'text="Choose files"']:
+            for opt in [
+                'text="Copied text"',
+                'text="Paste text"',
+                'text="Upload files"',
+                'text="Choose files"',
+                'text="Google Drive"',
+                'text="Add sources"',
+            ]:
                 try:
                     if await page.locator(opt).first.is_visible(timeout=1000):
                         source_dialog_open = True
@@ -349,16 +389,17 @@ async def run(args):
                     pass
 
             if not source_dialog_open:
+                print("[NotebookLM] Source dialog not open. Clicking '+ Add source' button...")
                 for add_sel in [
-                    'text="Drop files here"',
-                    'button:has-text("+")',
+                    'button:has-text("Add sources")',
+                    'button:has-text("Add source")',
+                    'button:has-text("+ Add source")',
                     '[aria-label*="Add source" i]',
                     '[aria-label*="Add sources" i]',
-                    'button:has-text("Add source")',
-                    'button:has-text("Add sources")',
-                    'button:has-text("+ Add source")',
+                    'text="Drop files here"',
+                    'button:has-text("+")',
                 ]:
-                    if await safe_click(page, add_sel, timeout=2000):
+                    if await safe_click(page, add_sel, timeout=2500):
                         print(f"[NotebookLM] Clicked '{add_sel}' to open source picker.")
                         await page.wait_for_timeout(2000)
                         break
@@ -367,58 +408,65 @@ async def run(args):
             source_files = [str(Path(s).resolve()) for s in args.sources]
             uploaded = False
 
-            # Strategy A: 'Copied text' / 'Paste text' (Most reliable, zero file DOM issues)
-            for text_sel in [
-                'text="Copied text"',
-                'text="Paste text"',
-                'button:has-text("Copied text")',
-                'button:has-text("Paste text")',
-                '[aria-label*="Copied text" i]',
-            ]:
-                if await safe_click(page, text_sel, timeout=2500):
-                    print(f"[NotebookLM] Clicked '{text_sel}'. Pasting brief...")
-                    await page.wait_for_timeout(1000)
-                    try:
-                        source_text = Path(source_files[0]).read_text(encoding="utf-8")
-                    except Exception:
-                        source_text = "Educational Research Brief\n"
+            # Strategy A: Direct input[type='file'] in DOM
+            file_input = page.locator('input[type="file"]')
+            if await file_input.count() > 0:
+                try:
+                    await file_input.first.set_input_files(source_files)
+                    uploaded = True
+                    print("[NotebookLM] Uploaded via direct input[type='file'].")
+                except Exception as e:
+                    print(f"[NotebookLM] Direct file input failed: {e}")
 
-                    pasted = False
-                    for txt_loc in ['textarea', '[contenteditable="true"]', 'input[type="text"]']:
-                        try:
-                            loc = page.locator(txt_loc).last
-                            if await loc.is_visible(timeout=2000):
-                                await loc.fill(source_text)
-                                pasted = True
-                                print("[NotebookLM] Pasted research text into source field.")
-                                break
-                        except Exception:
-                            pass
-
-                    if pasted:
-                        await page.wait_for_timeout(1000)
-                        for ins in ['button:has-text("Insert")', 'button:has-text("Save")', 'button:has-text("Done")', 'button:has-text("Add")']:
-                            if await safe_click(page, ins, timeout=3000):
-                                uploaded = True
-                                print("[NotebookLM] Clicked Insert/Save for Copied Text!")
-                                break
-                    if uploaded:
-                        break
-
-            # Strategy B: Direct input[type='file'] in DOM
+            # Strategy B: 'Copied text' / 'Paste text' (pasting the research brief text)
             if not uploaded:
-                file_input = page.locator('input[type="file"]')
-                if await file_input.count():
-                    try:
-                        await file_input.first.set_input_files(source_files)
-                        uploaded = True
-                        print("[NotebookLM] Uploaded via direct input[type='file'].")
-                    except Exception as e:
-                        print(f"[NotebookLM] Direct file input failed: {e}")
+                for text_sel in [
+                    'text="Copied text"',
+                    'text="Paste text"',
+                    'button:has-text("Copied text")',
+                    'button:has-text("Paste text")',
+                    '[aria-label*="Copied text" i]',
+                    '[aria-label*="Paste text" i]',
+                    'text="Text"',
+                ]:
+                    if await safe_click(page, text_sel, timeout=2500):
+                        print(f"[NotebookLM] Clicked '{text_sel}'. Pasting brief...")
+                        await page.wait_for_timeout(1000)
+                        try:
+                            source_text = Path(source_files[0]).read_text(encoding="utf-8")
+                        except Exception:
+                            source_text = "Educational Research Brief\n"
+
+                        pasted = False
+                        for txt_loc in ['textarea', '[contenteditable="true"]', 'input[type="text"]', 'div[role="textbox"]']:
+                            try:
+                                loc = page.locator(txt_loc).last
+                                if await loc.is_visible(timeout=2000):
+                                    await loc.fill(source_text)
+                                    pasted = True
+                                    print("[NotebookLM] Pasted research text into source field.")
+                                    break
+                            except Exception:
+                                pass
+
+                        if pasted:
+                            await page.wait_for_timeout(1000)
+                            for ins in ['button:has-text("Insert")', 'button:has-text("Save")', 'button:has-text("Done")', 'button:has-text("Add")']:
+                                if await safe_click(page, ins, timeout=3000):
+                                    uploaded = True
+                                    print("[NotebookLM] Clicked Insert/Save for Copied Text!")
+                                    break
+                        if uploaded:
+                            break
 
             # Strategy C: Click 'Upload files' card / tab
             if not uploaded:
-                for upload_card in ['text="Upload files"', 'text="Choose files"', 'text="Computer"', 'button:has-text("Upload files")']:
+                for upload_card in [
+                    'text="Upload files"',
+                    'text="Choose files"',
+                    'text="Computer"',
+                    'button:has-text("Upload files")',
+                ]:
                     if await safe_click(page, upload_card, timeout=2500):
                         await page.wait_for_timeout(1000)
                         file_input = page.locator('input[type="file"]')
@@ -449,8 +497,13 @@ async def run(args):
                 await page.screenshot(
                     path=str(out / "notebooklm_failure_upload.png"), full_page=True
                 )
+                try:
+                    dom_sample = await page.evaluate("() => document.body.innerText")
+                    print(f"[NotebookLM DEBUG] Page text at failure:\n{dom_sample[:800]}")
+                except Exception:
+                    pass
                 raise RuntimeError(
-                    "Could not upload sources. See notebooklm_failure_upload.png"
+                    f"Could not upload sources. Current URL: {page.url}. See notebooklm_failure_upload.png"
                 )
 
             # Wait for NotebookLM to ingest the sources
@@ -522,6 +575,11 @@ async def run(args):
                 await page.screenshot(
                     path=str(out / "notebooklm_failure_video.png"), full_page=True
                 )
+                try:
+                    dom_sample = await page.evaluate("() => document.body.innerText")
+                    print(f"[NotebookLM DEBUG] Studio text at failure:\n{dom_sample[:800]}")
+                except Exception:
+                    pass
                 raise RuntimeError(
                     "Could not find Video Overview button. See screenshot."
                 )

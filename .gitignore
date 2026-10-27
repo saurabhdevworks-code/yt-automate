@@ -9,3 +9,6 @@ output/*
 !output/.gitkeep
 assets/fonts/*
 !assets/fonts/README.md
+
+storage_state.json
+*.png
