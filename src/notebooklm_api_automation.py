@@ -52,20 +52,35 @@ def main():
         print(f"Adding source: {src_path}")
         run_cmd(["notebooklm", "--storage", storage_path, "source", "add", src_path])
 
-    # 4. Generate Video (Trigger and wait)
+    # 4. Generate Video (Trigger and wait) with automatic rate-limit cooldown handling
     print(f"[4/5] Triggering Hindi Video Overview generation (max wait: {args.timeout_minutes}m)...")
     prompt_file = str(Path(args.prompt).resolve())
     timeout_sec = args.timeout_minutes * 60
     
-    # Run generate video with wait
-    run_cmd([
+    gen_cmd = [
         "notebooklm", "--storage", storage_path,
         "generate", "video",
         "--prompt-file", prompt_file,
         "--language", "hi",
         "--wait",
         "--timeout", str(timeout_sec)
-    ])
+    ]
+
+    max_attempts = 4
+    delay_sec = 300  # 5 minutes cooldown between attempts
+    for attempt in range(1, max_attempts + 1):
+        res = run_cmd(gen_cmd, check=False)
+        if res.returncode == 0:
+            break
+        
+        combined_err = (res.stdout or "") + "\n" + (res.stderr or "")
+        if "Rate limited" in combined_err or "RateLimitError" in combined_err or "rate_limit" in combined_err.lower():
+            if attempt < max_attempts:
+                print(f"\n[RATE-LIMIT COOLDOWN] Google NotebookLM has a temporary cooldown after generating a video.")
+                print(f"Waiting 5 minutes for quota reset before retry ({attempt}/{max_attempts - 1})...\n")
+                time.sleep(delay_sec)
+                continue
+        raise RuntimeError(f"Command failed with code {res.returncode}: {' '.join(gen_cmd)}")
 
     # 5. Download Video MP4
     print(f"[5/5] Downloading video to {target_mp4}...")
