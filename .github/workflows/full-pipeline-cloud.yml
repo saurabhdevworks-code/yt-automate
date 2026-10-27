@@ -83,8 +83,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1440x1000x24" \
-            python -m src.notebooklm_automation \
+          python -m src.notebooklm_api_automation \
               --sources output/notebooklm_research_brief.md \
               --prompt output/notebooklm_prompt.txt \
               --storage-state storage_state.json \
@@ -120,3 +119,4 @@ jobs:
           path: output/
           if-no-files-found: warn
           retention-days: 14
+

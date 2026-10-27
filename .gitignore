@@ -12,3 +12,6 @@ assets/fonts/*
 
 storage_state.json
 *.png
+
+.*.lock
+*.context.json
