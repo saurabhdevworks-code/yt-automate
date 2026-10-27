@@ -87,6 +87,7 @@ jobs:
         if: ${{ !inputs.force_fresh }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p output
           # If previous video was already successfully uploaded to YouTube, do not reuse it (allow fresh daily video)
@@ -99,12 +100,12 @@ jobs:
           # If video is not yet on disk, search recent runs for unuploaded video artifact
           if [ ! -f output/notebooklm/notebooklm_video.mp4 ]; then
             echo "Searching for unuploaded video artifact in recent workflow runs..."
-            RUN_IDS=$(gh run list --workflow="full-pipeline-cloud.yml" --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || gh run list --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || echo "")
+            RUN_IDS=$(gh run list --repo "$GH_REPO" --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || echo "")
             for rid in $RUN_IDS; do
               echo "Checking run $rid..."
               rm -rf /tmp/art_check
               mkdir -p /tmp/art_check
-              if gh run download "$rid" --name full-notebooklm-pipeline-results --dir /tmp/art_check 2>/dev/null; then
+              if gh run download "$rid" --repo "$GH_REPO" --name full-notebooklm-pipeline-results --dir /tmp/art_check 2>/dev/null; then
                 # Handle nested or flat extraction
                 VID=$(find /tmp/art_check -name "notebooklm_video.mp4" 2>/dev/null | head -1)
                 UP_RES=$(find /tmp/art_check -name "upload_result.json" 2>/dev/null | head -1)
