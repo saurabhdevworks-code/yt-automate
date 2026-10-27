@@ -24,9 +24,11 @@ jobs:
           cache: pip
 
       - name: Install system dependencies & virtual screen
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb fonts-noto-color-emoji fonts-deva fonts-noto-core fonts-indic ffmpeg
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb fonts-noto-core fonts-deva
 
       - name: Install Python dependencies & Playwright
         run: |
