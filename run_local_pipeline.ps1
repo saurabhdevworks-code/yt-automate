@@ -7,6 +7,18 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  Starting Full NotebookLM YouTube Automation Pipeline" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
+# Load .env file if present
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+            $parts = $line.Split("=", 2)
+            [System.Environment]::SetEnvironmentVariable($parts[0].Trim(), $parts[1].Trim(), "Process")
+        }
+    }
+    Write-Host "Loaded environment variables from .env" -ForegroundColor Gray
+}
+
 # 1. Generate Research Pack
 Write-Host "`n[1/4] Generating AI Research Pack..." -ForegroundColor Yellow
 python -m src.generate_pack --settings config/settings.json --output output
@@ -47,17 +59,25 @@ if (Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") {
 }
 
 # 6. Upload to YouTube
-Write-Host "`n[4/4] Uploading Video to YouTube (Private)..." -ForegroundColor Yellow
+Write-Host "`n[4/4] Checking YouTube Upload..." -ForegroundColor Yellow
 $videoFile = "output\notebooklm\notebooklm_video.mp4"
 if (Test-Path $videoFile) {
-    if (Test-Path "output\thumbnail.jpg") {
-        python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --thumbnail "output\thumbnail.jpg" --result "output\upload_result.json"
+    if ($env:YOUTUBE_CLIENT_ID -and $env:YOUTUBE_CLIENT_SECRET -and $env:YOUTUBE_REFRESH_TOKEN) {
+        Write-Host "Uploading video to YouTube privately..." -ForegroundColor Cyan
+        if (Test-Path "output\thumbnail.jpg") {
+            python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --thumbnail "output\thumbnail.jpg" --result "output\upload_result.json"
+        } else {
+            python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+        }
+        Write-Host "`n==========================================================" -ForegroundColor Green
+        Write-Host "  SUCCESS! Video generated and uploaded to YouTube!" -ForegroundColor Green
+        Write-Host "==========================================================" -ForegroundColor Green
     } else {
-        python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+        Write-Host "`n==========================================================" -ForegroundColor Green
+        Write-Host "  SUCCESS! Video generated: $videoFile" -ForegroundColor Green
+        Write-Host "==========================================================" -ForegroundColor Green
+        Write-Host "[NOTE] YouTube API secrets not in .env. Video is ready in output/notebooklm/ folder." -ForegroundColor Yellow
     }
-    Write-Host "`n==========================================================" -ForegroundColor Green
-    Write-Host "  SUCCESS! Video generated and uploaded to YouTube!" -ForegroundColor Green
-    Write-Host "==========================================================" -ForegroundColor Green
 } else {
     Write-Host "`n[ERROR] Video file not found at $videoFile" -ForegroundColor Red
 }
