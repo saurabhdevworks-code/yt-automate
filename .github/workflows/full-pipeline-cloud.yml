@@ -41,14 +41,23 @@ jobs:
           NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
         run: |
           python -c '
-          import os, sys
+          import os, sys, json
           val = os.environ.get("NOTEBOOKLM_AUTH_JSON", "").strip()
-          if val:
+          if not val:
+              print("::error::NOTEBOOKLM_AUTH_JSON secret is missing or empty in GitHub Secrets!")
+              print("To fix: Run \"python scripts/notebooklm_login.py\" locally, copy storage_state.json, and add it to GitHub Settings -> Secrets -> Actions as NOTEBOOKLM_AUTH_JSON.")
+              sys.exit(1)
+          try:
+              data = json.loads(val)
+              cookies = data if isinstance(data, list) else data.get("cookies", [])
+              print(f"Session successfully validated: found {len(cookies)} cookies.")
+              if len(cookies) == 0:
+                  print("::warning::No cookies found in NOTEBOOKLM_AUTH_JSON secret. Session may fail.")
               with open("storage_state.json", "w", encoding="utf-8") as f:
                   f.write(val)
-              print(f"Session successfully restored from NOTEBOOKLM_AUTH_JSON secret ({len(val)} bytes).")
-          else:
-              print("WARNING: NOTEBOOKLM_AUTH_JSON secret is empty or not set!")
+          except Exception as e:
+              print(f"::error::NOTEBOOKLM_AUTH_JSON is not valid JSON: {e}")
+              sys.exit(1)
           '
 
       - name: Generate research pack

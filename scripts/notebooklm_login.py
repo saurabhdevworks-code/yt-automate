@@ -37,7 +37,7 @@ async def main():
             )
 
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-        await page.goto("https://notebooklm.google.com/", wait_until="domcontentloaded")
+        await page.goto("https://notebook.google.com/", wait_until="domcontentloaded")
         
         input("\n>>> Press ENTER here AFTER you are fully signed in and see NotebookLM dashboard... <<<\n")
         
@@ -46,9 +46,23 @@ async def main():
         await ctx.close()
 
     if storage_state_file.exists() and storage_state_file.stat().st_size > 50:
-        print("\n" + "=" * 60)
-        print(" SUCCESS! Session state saved to: " + str(storage_state_file))
-        print("=" * 60)
+        try:
+            data = json.loads(storage_state_file.read_text(encoding="utf-8"))
+            cookies = data.get("cookies", [])
+            auth_found = any(c.get("name") in ("SID", "__Secure-1PSID", "SAPISID", "SSID") for c in cookies)
+            print("\n" + "=" * 60)
+            print(f" SUCCESS! Session state saved to: {storage_state_file}")
+            print(f" Total cookies captured: {len(cookies)}")
+            if auth_found:
+                print(" Google authenticated session detected!")
+            else:
+                print(" WARNING: Main Google auth cookies (SID, __Secure-1PSID) not detected.")
+                print(" Make sure you completed sign-in and see the NotebookLM dashboard before pressing Enter.")
+            print("=" * 60)
+        except Exception:
+            print("\n" + "=" * 60)
+            print(" SUCCESS! Session state saved to: " + str(storage_state_file))
+            print("=" * 60)
         print("\nNext step for 100% Cloud Automation (No PC needed):")
         print("1. Go to your GitHub Repository -> Settings -> Secrets and variables -> Actions")
         print("2. Add a new repository secret named:")

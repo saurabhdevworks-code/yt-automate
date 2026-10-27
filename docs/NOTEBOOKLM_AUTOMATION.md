@@ -2,7 +2,20 @@
 
 This uses Playwright to operate the NotebookLM website because no documented public API for personal-account Video Overview generation was found. UI selectors may change; this is not guaranteed production-ready.
 
-## One-time Windows setup
+## Option A: 100% Cloud Server (No PC Required)
+1. Run the login script locally once on your computer to capture session state:
+   ```powershell
+   pip install -r requirements.txt
+   python -m playwright install chromium
+   python scripts/notebooklm_login.py
+   ```
+2. Log in to your Google Account in the browser window and wait until the NotebookLM dashboard loads. Press Enter in your terminal.
+3. This creates `storage_state.json`. Open `storage_state.json` and copy its entire contents.
+4. Go to your GitHub repository -> **Settings** -> **Secrets and variables** -> **Actions**.
+5. Add a secret named `NOTEBOOKLM_AUTH_JSON` and paste the file contents.
+6. Trigger **Full NotebookLM Pipeline (100% Cloud Server - No PC Required)** in GitHub Actions.
+
+## Option B: Windows self-hosted runner (PC must be on)
 1. Register a self-hosted GitHub Actions runner on your Windows PC and add custom label `notebooklm`.
 2. Run the runner interactively in the logged-in desktop session, not as a Windows service. The PC must be on, awake and online at schedule time.
 3. In PowerShell in the repository:

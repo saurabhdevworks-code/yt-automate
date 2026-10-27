@@ -16,40 +16,93 @@ async def safe_click(page, selector, timeout=5000):
     return False
 
 
+def normalize_cookie(c):
+    """Normalize cookie dict from any source (Playwright, Cookie-Editor, EditThisCookie)."""
+    if not isinstance(c, dict):
+        return None
+    name = c.get("name")
+    value = c.get("value")
+    if not name or value is None:
+        return None
+
+    cookie = {
+        "name": str(name),
+        "value": str(value),
+    }
+
+    # In Playwright, specify either domain + path OR url (never both)
+    domain = c.get("domain")
+    path = c.get("path") or "/"
+    url = c.get("url")
+
+    if domain:
+        cookie["domain"] = domain
+        cookie["path"] = path
+    elif url:
+        cookie["url"] = url
+    else:
+        cookie["domain"] = ".google.com"
+        cookie["path"] = path
+
+    # Expiry
+    if "expires" in c and isinstance(c["expires"], (int, float)) and c["expires"] > 0:
+        cookie["expires"] = float(c["expires"])
+    elif "expirationDate" in c and isinstance(c["expirationDate"], (int, float)) and c["expirationDate"] > 0:
+        cookie["expires"] = float(c["expirationDate"])
+
+    # Flags
+    if "httpOnly" in c:
+        cookie["httpOnly"] = bool(c["httpOnly"])
+    if "secure" in c:
+        cookie["secure"] = bool(c["secure"])
+
+    # sameSite: strictly check none/no_restriction BEFORE strict
+    ss = str(c.get("sameSite", "")).lower().strip()
+    if ss in ("none", "no_restriction"):
+        cookie["sameSite"] = "None"
+    elif ss == "lax":
+        cookie["sameSite"] = "Lax"
+    elif ss == "strict":
+        cookie["sameSite"] = "Strict"
+
+    return cookie
+
+
 async def close_all_modals(page, max_attempts=5):
     """Dismiss every modal / popup / onboarding banner on the screen."""
     for attempt in range(max_attempts):
-        # Method 1: Press Escape — works on almost every modal/dialog
         await page.keyboard.press("Escape")
-        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(400)
 
-        # Method 2: Click the X button on the flexibility/onboarding modal
-        # The X is an SVG/icon button inside the modal overlay
         try:
-            # Use JavaScript to find and click the modal close button
+            # Use JavaScript to find and click modal close / dismiss buttons
             closed_js = await page.evaluate("""() => {
-                // Find buttons that look like close/dismiss
-                const buttons = document.querySelectorAll('button');
+                let clicked = false;
+                const buttons = document.querySelectorAll('button, [role="button"]');
                 for (const btn of buttons) {
-                    const text = btn.textContent.trim().toLowerCase();
+                    const text = (btn.textContent || '').trim().toLowerCase();
                     const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-                    // The modal X button has text "close" (Material icon) or aria-label
-                    if ((text === 'close' || text === '✕' || text === '×' || label === 'close') 
+                    const title = (btn.getAttribute('title') || '').toLowerCase();
+                    if ((text === 'close' || text === '✕' || text === '×' || text === 'got it' || text === 'dismiss' ||
+                         label === 'close' || label.includes('close dialog') || title === 'close') 
                         && btn.offsetParent !== null) {
                         btn.click();
-                        return true;
+                        clicked = true;
                     }
                 }
-                return false;
+                return clicked;
             }""")
             if closed_js:
-                await page.wait_for_timeout(500)
+                await page.wait_for_timeout(400)
         except Exception:
             pass
 
-        # Method 3: Click specific dismiss buttons
         for sel in [
+            'div[role="dialog"] button[aria-label*="close" i]',
+            'div[role="dialog"] button:has-text("close")',
+            'div[role="dialog"] button:has(svg)',
             'button[aria-label="Close"]',
+            'button:has-text("close")',
             'button:has-text("Got it")',
             'button:has-text("Dismiss")',
         ]:
@@ -63,7 +116,13 @@ async def close_all_modals(page, max_attempts=5):
 
 
 async def run(args):
-    profile = Path(args.profile).expanduser().resolve()
+    profile_str = getattr(args, "profile", "") or os.getenv("NOTEBOOKLM_PROFILE", "")
+    if not profile_str:
+        profile_str = r"C:\notebooklm-playwright-profile" if sys.platform.startswith("win") else "~/.notebooklm-playwright-profile"
+    elif not sys.platform.startswith("win") and (profile_str.startswith("C:") or profile_str.startswith("c:")):
+        profile_str = "~/.notebooklm-playwright-profile"
+
+    profile = Path(profile_str).expanduser().resolve()
     profile.mkdir(parents=True, exist_ok=True)
     out = Path(args.output).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -80,10 +139,17 @@ async def run(args):
             "--disable-gpu",
         ]
 
+        user_agent = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        )
+
         launch_kwargs = {
             "headless": getattr(args, "headless", False),
             "accept_downloads": True,
             "viewport": {"width": 1440, "height": 1000},
+            "user_agent": user_agent,
+            "locale": "en-US",
             "args": browser_args,
         }
 
@@ -105,70 +171,135 @@ async def run(args):
                 **launch_kwargs
             )
 
+        origins_to_inject = []
         if storage_state_file and Path(storage_state_file).exists():
             try:
                 raw_text = Path(storage_state_file).read_text(encoding="utf-8").strip()
-                data = json.loads(raw_text)
-                raw_cookies = data if isinstance(data, list) else data.get("cookies", [])
-                
-                # Normalize cookies for Playwright from any export source (Cookie-Editor, EditThisCookie, etc.)
-                valid_cookies = []
-                for c in raw_cookies:
-                    if not isinstance(c, dict):
-                        continue
-                    cookie = dict(c)
-                    if "name" not in cookie or "value" not in cookie:
-                        continue
-                    
-                    # Ensure url or domain
-                    if "domain" not in cookie and "url" not in cookie:
-                        cookie["domain"] = ".google.com"
+                if raw_text:
+                    data = json.loads(raw_text)
+                    raw_cookies = data if isinstance(data, list) else data.get("cookies", [])
+                    origins_to_inject = data.get("origins", []) if isinstance(data, dict) else []
 
-                    # Normalize sameSite
-                    ss = str(cookie.get("sameSite", "")).lower()
-                    if "strict" in ss:
-                        cookie["sameSite"] = "Strict"
-                    elif "lax" in ss:
-                        cookie["sameSite"] = "Lax"
-                    elif "none" in ss or "no_restriction" in ss:
-                        cookie["sameSite"] = "None"
+                    valid_cookies = []
+                    for c in raw_cookies:
+                        norm = normalize_cookie(c)
+                        if norm:
+                            valid_cookies.append(norm)
+                            dom = norm.get("domain", "")
+                            # Duplicate cookies between notebooklm.google.com and notebook.google.com
+                            if "notebooklm.google.com" in dom:
+                                alt = dict(norm)
+                                alt["domain"] = dom.replace("notebooklm.google.com", "notebook.google.com")
+                                valid_cookies.append(alt)
+                            elif "notebook.google.com" in dom:
+                                alt = dict(norm)
+                                alt["domain"] = dom.replace("notebook.google.com", "notebooklm.google.com")
+                                valid_cookies.append(alt)
+
+                    if valid_cookies:
+                        await ctx.add_cookies(valid_cookies)
+                        print(f"[NotebookLM] Successfully loaded {len(valid_cookies)} authenticated cookies from {storage_state_file}")
                     else:
-                        cookie.pop("sameSite", None)
-
-                    # Remove non-standard fields that cause Playwright to reject
-                    for key in ["id", "hostOnly", "session", "storeId"]:
-                        cookie.pop(key, None)
-
-                    valid_cookies.append(cookie)
-
-                if valid_cookies:
-                    await ctx.add_cookies(valid_cookies)
-                    print(f"[NotebookLM] Successfully loaded {len(valid_cookies)} authenticated cookies from {storage_state_file}")
-                else:
-                    print(f"[NotebookLM] Warning: No valid cookies found in {storage_state_file}")
+                        print(f"[NotebookLM] Warning: No valid cookies found in {storage_state_file}")
             except Exception as e:
                 print(f"[NotebookLM] Error loading cookies from {storage_state_file}: {e}")
+
         page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+
+        # Stealth: mask webdriver flag
+        await page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+        """)
+
+        # Restore localStorage from origins if present
+        for orig in origins_to_inject:
+            orig_name = orig.get("origin", "")
+            ls_list = orig.get("localStorage", [])
+            if ls_list and ("notebook" in orig_name or "google" in orig_name):
+                js_code = f"""
+                (() => {{
+                    const items = {json.dumps(ls_list)};
+                    for (const item of items) {{
+                        try {{
+                            localStorage.setItem(item.name, item.value);
+                        }} catch (e) {{}}
+                    }}
+                }})();
+                """
+                await page.add_init_script(js_code)
         try:
             # ── Navigate ─────────────────────────────────────────────
-            await page.goto(
-                "https://notebooklm.google.com/", wait_until="networkidle"
-            )
+            target_url = "https://notebook.google.com/"
+            print(f"[NotebookLM] Navigating to {target_url}...")
+            await page.goto(target_url, wait_until="networkidle")
             await page.wait_for_timeout(3000)
+            print(f"[NotebookLM] Current page URL: {page.url}")
 
-            # Check if redirected to landing/trynow page
+            # Check if redirected to landing/trynow promotional page
             if "trynow" in page.url.lower():
-                print("[NotebookLM] Landed on /trynow promotional page. Trying to click 'Try now'...")
-                for try_btn in ['text="Try now"', 'text="Try NotebookLM"', 'button:has-text("Try now")', 'button:has-text("Try NotebookLM")', 'a:has-text("Try NotebookLM")', 'a:has-text("Try now")']:
-                    if await safe_click(page, try_btn, timeout=3000):
-                        await page.wait_for_timeout(4000)
+                print("[NotebookLM] Landed on /trynow promotional page. Clicking sign-in button...")
+                clicked = False
+                for signin_btn in [
+                    'a.landing-cta-primary',
+                    'a:has-text("Sign in to Gemini Notebook")',
+                    'a.landing-header-signin',
+                    'a:has-text("Sign in")',
+                    'a[href*="/login"]',
+                    'button:has-text("Sign in")',
+                    'text="Sign in to Gemini Notebook"',
+                    'text="Sign in"',
+                    'text="Try now"',
+                    'text="Try NotebookLM"',
+                ]:
+                    if await safe_click(page, signin_btn, timeout=2000):
+                        print(f"[NotebookLM] Clicked sign-in element '{signin_btn}'")
+                        clicked = True
                         break
+
+                if not clicked:
+                    print("[NotebookLM] Sign-in button not found on /trynow; navigating directly to /login...")
+                    await page.goto("https://notebook.google.com/login?continue=https://notebook.google.com/", wait_until="networkidle")
+
+                # Wait for Google SSO redirects to complete
+                print("[NotebookLM] Waiting for authentication redirects...")
+                try:
+                    await page.wait_for_url(
+                        lambda u: "trynow" not in u.lower() and "accounts.google.com" not in u.lower(),
+                        timeout=15000
+                    )
+                except Exception:
+                    await page.wait_for_timeout(4000)
+
+            # Check if Google shows the account chooser (multiple accounts or select profile)
+            if "accounts.google.com" in page.url:
+                print(f"[NotebookLM] On accounts.google.com ({page.url}). Checking for account picker...")
+                for acc_sel in [
+                    'div[data-identifier]',
+                    'div[data-email]',
+                    'li div[role="link"]',
+                    '[aria-label*="@"]',
+                ]:
+                    if await safe_click(page, acc_sel, timeout=2000):
+                        print(f"[NotebookLM] Clicked account selector '{acc_sel}'")
+                        try:
+                            await page.wait_for_url(
+                                lambda u: "accounts.google.com" not in u.lower() and "trynow" not in u.lower(),
+                                timeout=15000
+                            )
+                        except Exception:
+                            await page.wait_for_timeout(4000)
+                        break
+
+            print(f"[NotebookLM] Post-auth URL: {page.url}")
 
             if "accounts.google.com" in page.url or "trynow" in page.url.lower():
                 await page.screenshot(path=str(out / "notebooklm_not_signed_in.png"), full_page=True)
                 raise RuntimeError(
-                    "Not signed in to NotebookLM! NOTEBOOKLM_AUTH_JSON secret is missing, empty, or expired. "
-                    "Please run 'python scripts/notebooklm_login.py' locally and save storage_state.json as NOTEBOOKLM_AUTH_JSON in GitHub Secrets."
+                    f"Not signed in to NotebookLM! Still on {page.url}. "
+                    "NOTEBOOKLM_AUTH_JSON session cookies may have expired or Google is requesting interactive verification. "
+                    "Please re-run 'python scripts/notebooklm_login.py' locally and update NOTEBOOKLM_AUTH_JSON in GitHub Secrets."
                 )
 
             # ── Step 1: Create a new notebook ────────────────────────
@@ -200,22 +331,7 @@ async def run(args):
             # ── Step 2: Dismiss Gemini Notebook Flexibility/Onboarding Modal ──
             # The 'We\'re giving you more flexibility...' modal appears over the new notebook.
             print("[NotebookLM] Checking for flexibility / onboarding modal...")
-            for _ in range(3):
-                await page.keyboard.press("Escape")
-                await page.wait_for_timeout(400)
-
-                for close_sel in [
-                    'div[role="dialog"] button[aria-label*="close" i]',
-                    'div[role="dialog"] button:has-text("close")',
-                    'div[role="dialog"] button:has(svg)',
-                    'button[aria-label="Close"]',
-                    'button:has-text("close")',
-                    'button:has-text("Got it")',
-                    'button:has-text("Dismiss")',
-                ]:
-                    if await safe_click(page, close_sel, timeout=500):
-                        print(f"[NotebookLM] Closed modal via '{close_sel}'")
-                        await page.wait_for_timeout(500)
+            await close_all_modals(page, max_attempts=5)
 
             # ── Step 3: Open Source Picker if not already open ───────
             # In NotebookLM, the left panel has 'Sources' with a '+' button and 'Drop files here'
@@ -346,30 +462,57 @@ async def run(args):
             # ── Step 5: Click Video Overview in Studio panel ─────────
             # Studio panel is on the right side; Video Overview is one of
             # the artifact cards (along with Audio Overview, Slide Deck, etc.)
-            # First check if "Video Overview" text is directly visible
+            print("[NotebookLM] Locating Video Overview in Studio panel...")
             video_clicked = False
-            for sel in [
+
+            # Dismiss any promo/announcement banner inside Studio if present
+            for promo_close in [
+                'studio-panel button[aria-label*="close" i]',
+                'button[aria-label="Dismiss"]',
+            ]:
+                await safe_click(page, promo_close, timeout=1000)
+
+            # Ensure Studio panel is open/expanded
+            await safe_click(page, 'button:has-text("Studio")', timeout=1500)
+            await safe_click(page, 'text="Studio"', timeout=1500)
+            await page.wait_for_timeout(1000)
+
+            # Candidate selectors for Video Overview card
+            video_selectors = [
                 'text="Video Overview"',
                 'button:has-text("Video Overview")',
+                'text="Video overview"',
+                'button:has-text("Video overview")',
+                '[aria-label*="Video Overview" i]',
+                '[aria-label*="Video overview" i]',
                 'text="Video"',
-            ]:
-                if await safe_click(page, sel, timeout=3000):
+                'button:has-text("Video")',
+            ]
+
+            for sel in video_selectors:
+                if await safe_click(page, sel, timeout=2500):
                     video_clicked = True
-                    print("Clicked Video Overview.")
+                    print(f"[NotebookLM] Clicked Video Overview ({sel})")
                     await page.wait_for_timeout(2000)
                     break
 
             if not video_clicked:
-                # Maybe Studio panel needs to be expanded first
-                await safe_click(page, 'text="Studio"', timeout=2000)
-                await page.wait_for_timeout(1500)
-                for sel in [
-                    'text="Video Overview"',
-                    'button:has-text("Video")',
-                ]:
-                    if await safe_click(page, sel, timeout=3000):
+                # Scroll Studio panel down to bring cards into view
+                try:
+                    await page.evaluate("""() => {
+                        const panels = document.querySelectorAll('studio-panel, [role="complementary"], .studio-container');
+                        for (const p of panels) {
+                            p.scrollTop = p.scrollHeight;
+                        }
+                    }""")
+                    await page.wait_for_timeout(1500)
+                except Exception:
+                    pass
+
+                for sel in video_selectors:
+                    if await safe_click(page, sel, timeout=2500):
                         video_clicked = True
-                        print("Clicked Video Overview (after expanding Studio).")
+                        print(f"[NotebookLM] Clicked Video Overview after scroll ({sel})")
                         await page.wait_for_timeout(2000)
                         break
 
