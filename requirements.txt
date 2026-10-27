@@ -8,3 +8,4 @@ google-auth-oauthlib>=1.2,<2
 playwright>=1.49,<2
 notebooklm-py[browser,headless]>=0.8.5
 gpsoauth>=1.1.0
+gdown>=5.0.0

@@ -3,6 +3,63 @@ name: Full NotebookLM Pipeline (100% Cloud Server - No PC Required)
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Execution Mode: auto (full automated) or custom (manual controls)'
+        required: true
+        type: choice
+        options:
+          - auto
+          - custom
+        default: auto
+      custom_topic:
+        description: '[Custom] Topic / Subject for NotebookLM video (e.g. History of Internet in India)'
+        required: false
+        type: string
+        default: ''
+      custom_trim_start:
+        description: '[Custom] Trim video from start (seconds or 00:00:05, leave blank for no trim)'
+        required: false
+        type: string
+        default: ''
+      custom_trim_end:
+        description: '[Custom] Trim video end timestamp (e.g. 00:05:00, leave blank for no trim)'
+        required: false
+        type: string
+        default: ''
+      custom_intro_url:
+        description: '[Custom] Intro video link (Google Drive / Direct MP4 URL, optional)'
+        required: false
+        type: string
+        default: ''
+      custom_thumbnail_url:
+        description: '[Custom] Thumbnail link (Google Drive / Direct image URL, optional)'
+        required: false
+        type: string
+        default: ''
+      custom_yt_title:
+        description: '[Custom] YouTube Title (optional - auto-generated if blank)'
+        required: false
+        type: string
+        default: ''
+      custom_yt_description:
+        description: '[Custom] YouTube Description (optional - auto-generated if blank)'
+        required: false
+        type: string
+        default: ''
+      custom_yt_tags:
+        description: '[Custom] YouTube Tags comma-separated (optional - e.g. AI, Hindi, Tech)'
+        required: false
+        type: string
+        default: ''
+      upload_privacy:
+        description: 'YouTube Upload Privacy (private, unlisted, public)'
+        required: true
+        type: choice
+        options:
+          - private
+          - unlisted
+          - public
+        default: private
       force_fresh:
         description: 'Force fresh run (ignore previous cache/artifacts)'
         required: false
@@ -34,12 +91,12 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install system dependencies & virtual screen
+      - name: Install system dependencies & ffmpeg
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb fonts-noto-core fonts-deva
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb fonts-noto-core fonts-deva ffmpeg
 
       - name: Install Python dependencies & Playwright
         run: |
@@ -114,14 +171,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p output
-          # If previous video was already successfully uploaded to YouTube, do not reuse it (allow fresh daily video)
           if [ -f output/upload_result.json ]; then
             echo "[RESUME] Previous video was already successfully uploaded to YouTube."
             echo "Starting fresh for new content."
             rm -rf output/*
           fi
 
-          # If video is not yet on disk, search recent runs for unuploaded video artifact
           if [ ! -f output/notebooklm/notebooklm_video.mp4 ]; then
             echo "Searching for unuploaded video artifact in recent workflow runs..."
             RUN_IDS=$(gh run list --repo "$GH_REPO" --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || echo "")
@@ -130,7 +185,6 @@ jobs:
               rm -rf /tmp/art_check
               mkdir -p /tmp/art_check
               if gh run download "$rid" --repo "$GH_REPO" --name full-notebooklm-pipeline-results --dir /tmp/art_check 2>/dev/null; then
-                # Handle nested or flat extraction
                 VID=$(find /tmp/art_check -name "notebooklm_video.mp4" 2>/dev/null | head -1)
                 UP_RES=$(find /tmp/art_check -name "upload_result.json" 2>/dev/null | head -1)
                 if [ -n "$UP_RES" ]; then
@@ -139,7 +193,6 @@ jobs:
                   echo "=========================================================="
                   echo "[RESUME] Found unuploaded video in run $rid!"
                   echo "=========================================================="
-                  # Copy all recovered files to output/
                   mkdir -p output/notebooklm
                   cp "$VID" output/notebooklm/notebooklm_video.mp4
                   META=$(find /tmp/art_check -name "metadata.json" 2>/dev/null | head -1)
@@ -159,11 +212,22 @@ jobs:
         id: gen_pack
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MODE: ${{ inputs.mode || 'auto' }}
+          CUSTOM_TOPIC: ${{ inputs.custom_topic }}
+          CUSTOM_TITLE: ${{ inputs.custom_yt_title }}
+          CUSTOM_DESC: ${{ inputs.custom_yt_description }}
+          CUSTOM_TAGS: ${{ inputs.custom_yt_tags }}
         run: |
           if [ -f output/metadata.json ] && [ -f output/notebooklm_research_brief.md ]; then
             echo "[RESUME] Metadata and research brief already present. Skipping pack generation."
           else
-            python -m src.generate_pack --settings config/settings.json --output output
+            python -m src.generate_pack \
+              --settings config/settings.json \
+              --output output \
+              --custom-topic "$CUSTOM_TOPIC" \
+              --custom-title "$CUSTOM_TITLE" \
+              --custom-description "$CUSTOM_DESC" \
+              --custom-tags "$CUSTOM_TAGS"
           fi
 
       - name: Prepare NotebookLM files
@@ -192,10 +256,32 @@ jobs:
               --output output/notebooklm \
               --timeout-minutes 75
 
+      - name: Process Video (Trim, Intro, Thumbnail & Custom Metadata)
+        env:
+          INTRO_URL: ${{ inputs.custom_intro_url }}
+          TRIM_START: ${{ inputs.custom_trim_start }}
+          TRIM_END: ${{ inputs.custom_trim_end }}
+          CUSTOM_THUMB: ${{ inputs.custom_thumbnail_url }}
+          CUSTOM_TITLE: ${{ inputs.custom_yt_title }}
+          CUSTOM_DESC: ${{ inputs.custom_yt_description }}
+          CUSTOM_TAGS: ${{ inputs.custom_yt_tags }}
+        run: |
+          python -m src.video_processor \
+            --video output/notebooklm/notebooklm_video.mp4 \
+            --intro-url "$INTRO_URL" \
+            --trim-start "$TRIM_START" \
+            --trim-end "$TRIM_END" \
+            --custom-thumbnail-url "$CUSTOM_THUMB" \
+            --thumbnail-out output/thumbnail.jpg \
+            --metadata output/metadata.json \
+            --custom-title "$CUSTOM_TITLE" \
+            --custom-description "$CUSTOM_DESC" \
+            --custom-tags "$CUSTOM_TAGS"
+
       - name: Create thumbnail when Devanagari font is configured
         run: |
           if [ -f output/thumbnail.jpg ]; then
-            echo "[RESUME] Thumbnail already exists. Skipping."
+            echo "[RESUME] Thumbnail already present (custom or generated). Skipping auto-creation."
           elif [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
             thumb_text=$(python -c "import json; print(json.load(open('output/metadata.json')).get('thumbnail_text', ''))")
             if [ -n "$thumb_text" ]; then
@@ -203,16 +289,18 @@ jobs:
             fi
           fi
 
-      - name: Upload to YouTube privately
+      - name: Upload to YouTube
         env:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          ALLOW_PUBLIC_PUBLISH: "true"
+          PRIVACY: ${{ inputs.upload_privacy || 'private' }}
         run: |
           if [ -f output/thumbnail.jpg ]; then
-            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy private --thumbnail output/thumbnail.jpg --result output/upload_result.json
+            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy "$PRIVACY" --thumbnail output/thumbnail.jpg --result output/upload_result.json
           else
-            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy private --result output/upload_result.json
+            python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy "$PRIVACY" --result output/upload_result.json
           fi
 
       - name: Save pipeline cache for resumption

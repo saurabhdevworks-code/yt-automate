@@ -48,25 +48,56 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--settings", default="config/settings.json")
     ap.add_argument("--output", default="output")
+    ap.add_argument("--custom-topic", default="", help="Custom user-specified topic")
+    ap.add_argument("--custom-title", default="", help="Custom YouTube title")
+    ap.add_argument("--custom-description", default="", help="Custom YouTube description")
+    ap.add_argument("--custom-tags", default="", help="Custom YouTube tags (comma-separated)")
     args = ap.parse_args()
+
     settings = json.loads((ROOT / args.settings).read_text(encoding="utf-8"))
-    topics = discover_topics(settings)
-    if not topics:
-        raise SystemExit("No research results were found. Check network/RSS or add sources manually.")
+
+    if args.custom_topic.strip():
+        topic = args.custom_topic.strip()
+        print(f"\n[CUSTOM MODE] Using user-specified topic: '{topic}'")
+        topics = [{
+            "title": topic,
+            "url": "https://notebooklm.google.com/",
+            "publisher": "Custom User Topic",
+            "published": datetime.now(timezone.utc).isoformat(),
+            "summary": f"Comprehensive explainer and breakdown of {topic}."
+        }]
+    else:
+        print("\n[AUTO MODE] Discovering trending topics automatically via RSS & web feeds...")
+        topics = discover_topics(settings)
+        if not topics:
+            raise SystemExit("No research results were found. Check network/RSS or add sources manually.")
+        topic = topics[0]["title"]
+
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = ROOT / args.output / f"research-{stamp}"
     out.mkdir(parents=True, exist_ok=True)
-    topic = topics[0]["title"]
+
     metadata = generate_metadata(topic, settings.get("target_audience", "Hindi viewers"))
+    
+    # Override with custom metadata if provided by user
+    if args.custom_title.strip():
+        metadata["title"] = args.custom_title.strip()[:100]
+    if args.custom_description.strip():
+        metadata["description"] = args.custom_description.strip()[:5000]
+    if args.custom_tags.strip():
+        metadata["tags"] = [t.strip() for t in args.custom_tags.split(",") if t.strip()][:30]
+
     (out / "topics.json").write_text(json.dumps(topics, ensure_ascii=False, indent=2), encoding="utf-8")
     (out / "research_sources.json").write_text(json.dumps(topics, ensure_ascii=False, indent=2), encoding="utf-8")
     (out / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
+
     source_lines = "\n".join(
         f"- [{x['title']}]({x['url']}) — {x.get('publisher','')} | {x.get('published','')}\n  - Notes: {x.get('summary','')}"
         for x in topics
     )
     brief = f"""# Research brief
 
+- Topic: {topic}
 - Niche: {settings.get('niche')}
 - Audience: {settings.get('target_audience')}
 - Language: {settings.get('language', 'Hindi')}
@@ -76,36 +107,32 @@ def main():
 ## Candidate topic
 {topic}
 
-## Selection note
-This is a heuristic ranking of RSS and Wikipedia discovery results. It is not YouTube search volume or a guarantee of popularity. Verify all facts from original sources.
+## Detailed Overview
+This brief guides NotebookLM to create an engaging Hindi Video Overview explaining {topic}.
+Key aspects to cover:
+1. Clear explanation of what {topic} is and why it matters today.
+2. Background context, origin, and key developments.
+3. Real-world impact and India-relevant analogies or examples.
+4. Summary takeaway and future outlook.
 
-## Sources to inspect and add to NotebookLM
+## Sources
 {source_lines}
-
-## Research cautions
-- Search snippets are leads, not proof.
-- Prefer official/primary sources and multiple independent sources for important claims.
-- Remove irrelevant or low-quality sources before generating.
 """
     (out / "research_brief.md").write_text(brief, encoding="utf-8")
-    prompt = f"""Create a Hindi Video Overview for {settings.get('target_audience', 'Hindi-speaking viewers')}.
+    prompt = f"""Create a comprehensive Hindi Video Overview for {settings.get('target_audience', 'Hindi-speaking viewers')}.
 Topic: {topic}
 Style: {settings.get('video_style', 'Educational explainer')}.
-Aim for {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes, without promising an exact duration.
-Use the supplied sources as the factual basis. Start with a strong but accurate hook, explain concepts in simple Hindi with India-relevant examples, maintain a clear beginning-middle-end, avoid repetition and unsupported statistics, and end with a useful takeaway. Use readable visual text. Do not copy long passages.
-The final video must be generated using Google NotebookLM Video Overview only. Do not use any other video generator.
+Aim for {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes.
+Start with a strong, curiosity-inducing hook. Explain key ideas in clean, simple conversational Hindi. Maintain a logical narrative flow from introduction to deep-dive to conclusion. Avoid unsupported claims. Ensure the visuals and narration are clear and engaging.
+The final video must be generated using Google NotebookLM Video Overview in Hindi.
 """
     (out / "notebooklm_prompt.txt").write_text(prompt, encoding="utf-8")
     handoff = f"""# NotebookLM handoff
 
 1. Open https://notebooklm.google.com/
 2. Create a notebook for: {topic}
-3. Inspect the sources in `research_sources.json`; open and verify them, then add relevant source pages/files to NotebookLM.
-4. In Studio, choose Video Overview.
-5. Choose Hindi as output language if available and paste `notebooklm_prompt.txt` into custom instructions.
-6. Generate and download the video from NotebookLM.
-7. Review facts, narration, visuals and duration. Exact {settings.get('duration_min_minutes',4)}–{settings.get('duration_max_minutes',8)} minute duration is not guaranteed.
-8. Trigger GitHub Actions → Upload NotebookLM Video with a direct HTTPS download URL for the MP4.
+3. Sources and notes are in `research_brief.md`.
+4. In Studio, choose Video Overview (Language: Hindi).
 """
     (out / "NOTEBOOKLM_HANDOFF.md").write_text(handoff, encoding="utf-8")
     print(f"Research pack: {out}")
