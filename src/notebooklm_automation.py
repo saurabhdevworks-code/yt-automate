@@ -375,10 +375,8 @@ async def run(args):
             for opt in [
                 'text="Copied text"',
                 'text="Paste text"',
-                'text="Upload files"',
-                'text="Choose files"',
-                'text="Google Drive"',
-                'text="Add sources"',
+                'div[role="dialog"]',
+                'mat-dialog-container',
             ]:
                 try:
                     if await page.locator(opt).first.is_visible(timeout=1000):
@@ -389,19 +387,20 @@ async def run(args):
                     pass
 
             if not source_dialog_open:
-                print("[NotebookLM] Source dialog not open. Clicking '+ Add source' button...")
+                print("[NotebookLM] Source dialog not open. Clicking '+ Add sources' button...")
                 for add_sel in [
                     'button:has-text("Add sources")',
+                    'text="+ Add sources"',
                     'button:has-text("Add source")',
                     'button:has-text("+ Add source")',
+                    'text="add a source"',
+                    'text="Drop files here"',
                     '[aria-label*="Add source" i]',
                     '[aria-label*="Add sources" i]',
-                    'text="Drop files here"',
-                    'button:has-text("+")',
                 ]:
-                    if await safe_click(page, add_sel, timeout=2500):
+                    if await safe_click(page, add_sel, timeout=3000):
                         print(f"[NotebookLM] Clicked '{add_sel}' to open source picker.")
-                        await page.wait_for_timeout(2000)
+                        await page.wait_for_timeout(2500)
                         break
 
             # ── Step 4: Add Source (Copied Text / File Upload) ─────────
@@ -610,9 +609,16 @@ async def run(args):
             while time.time() < deadline:
                 await page.wait_for_timeout(15000)
                 # Check for download button
-                for dl_label in ["Download video", "Download overview", "Download"]:
+                for dl_sel in [
+                    'button:has-text("Download video")',
+                    'button:has-text("Download overview")',
+                    'button:has-text("Download")',
+                    '[aria-label*="Download video" i]',
+                    '[aria-label*="Download overview" i]',
+                    '[aria-label*="Download" i]',
+                ]:
                     try:
-                        dl_btn = page.locator(f'button:has-text("{dl_label}")').first
+                        dl_btn = page.locator(dl_sel).first
                         if await dl_btn.is_visible(timeout=2000):
                             async with page.expect_download(timeout=30000) as dl_info:
                                 await dl_btn.click()
