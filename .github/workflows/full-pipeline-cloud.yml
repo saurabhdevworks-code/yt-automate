@@ -67,7 +67,8 @@ jobs:
                   prof_dir = Path.home() / ".notebooklm" / "profiles" / "default"
                   prof_dir.mkdir(parents=True, exist_ok=True)
                   (prof_dir / "master_token.json").write_text(master_val, encoding="utf-8")
-                  print(f"Master Token configured successfully for: {data.get(\"email\", \"configured user\")}")
+                  acct = data.get("email", "configured user")
+                  print(f"Master Token configured successfully for: {acct}")
               except Exception as e:
                   print(f"::error::NOTEBOOKLM_MASTER_TOKEN_JSON is not valid JSON: {e}")
                   sys.exit(1)
