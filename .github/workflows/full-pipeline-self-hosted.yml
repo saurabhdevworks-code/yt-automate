@@ -48,6 +48,16 @@ jobs:
         run: |
           if (-not $env:NOTEBOOKLM_PROFILE) { $env:NOTEBOOKLM_PROFILE = "C:\notebooklm-playwright-profile" }
           py -m src.notebooklm_automation --sources "output\notebooklm_research_brief.md" --prompt "output\notebooklm_prompt.txt" --profile "$env:NOTEBOOKLM_PROFILE" --output "output\notebooklm" --timeout-minutes 75
+
+      - name: Create thumbnail when Devanagari font is configured
+        shell: powershell
+        run: |
+          if ((Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") -and (Test-Path "output\metadata.json")) {
+            $meta = Get-Content "output\metadata.json" | ConvertFrom-Json
+            if ($meta.thumbnail_text) {
+              py -m src.thumbnail --text "$($meta.thumbnail_text)" --output "output\thumbnail.jpg" --font "assets\fonts\NotoSansDevanagari-Bold.ttf"
+            }
+          }
       - name: Upload to YouTube privately
         shell: powershell
         env:
@@ -55,7 +65,11 @@ jobs:
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
-          py -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+          if (Test-Path "output\thumbnail.jpg") {
+            py -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --thumbnail "output\thumbnail.jpg" --result "output\upload_result.json"
+          } else {
+            py -m src.youtube_upload --video "output\notebooklm\notebooklm_video.mp4" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+          }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
