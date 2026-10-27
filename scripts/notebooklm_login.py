@@ -15,14 +15,29 @@ def find_chrome():
     return "chrome"
 
 async def export_storage_state(profile_dir, storage_state_file):
-    async with async_playwright() as p:
-        ctx = await p.chromium.launch_persistent_context(
-            str(profile_dir),
-            channel="chrome",
-            headless=True
-        )
-        await ctx.storage_state(path=str(storage_state_file))
-        await ctx.close()
+    for attempt in range(5):
+        try:
+            async with async_playwright() as p:
+                try:
+                    ctx = await p.chromium.launch_persistent_context(
+                        str(profile_dir),
+                        channel="chrome",
+                        headless=True
+                    )
+                except Exception:
+                    ctx = await p.chromium.launch_persistent_context(
+                        str(profile_dir),
+                        headless=True
+                    )
+                await ctx.storage_state(path=str(storage_state_file))
+                await ctx.close()
+                return
+        except Exception as e:
+            if ("ProcessSingleton" in str(e) or "lock" in str(e).lower()) and attempt < 4:
+                print("Waiting for Chrome profile to release lock...")
+                await asyncio.sleep(2)
+            else:
+                raise e
 
 def main():
     profile_dir = Path(os.getenv("NOTEBOOKLM_PROFILE", r"C:\notebooklm-playwright-profile")).expanduser().resolve()
