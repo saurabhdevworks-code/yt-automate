@@ -1,0 +1,63 @@
+# Full YouTube Automation Pipeline (Local PC Execution)
+# This uses your authenticated Google Chrome profile (C:\notebooklm-playwright-profile)
+# where Google NEVER blocks with password or 2FA challenge!
+
+$ErrorActionPreference = "Stop"
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "  Starting Full NotebookLM YouTube Automation Pipeline" -ForegroundColor Cyan
+Write-Host "==========================================================" -ForegroundColor Cyan
+
+# 1. Generate Research Pack
+Write-Host "`n[1/4] Generating AI Research Pack..." -ForegroundColor Yellow
+python -m src.generate_pack --settings config/settings.json --output output
+
+# 2. Find latest research pack
+$latest = Get-ChildItem output -Directory -Filter "research-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $latest) {
+    Write-Host "[ERROR] No research pack found in output/" -ForegroundColor Red
+    exit 1
+}
+Write-Host "Using research pack: $($latest.FullName)" -ForegroundColor Green
+
+# 3. Copy files to output root
+Copy-Item "$($latest.FullName)\research_brief.md" "output\notebooklm_research_brief.md" -Force
+Copy-Item "$($latest.FullName)\notebooklm_prompt.txt" "output\notebooklm_prompt.txt" -Force
+Copy-Item "$($latest.FullName)\metadata.json" "output\metadata.json" -Force
+
+# 4. Run NotebookLM Automation with Local Profile
+Write-Host "`n[2/4] Automating Google NotebookLM Video Overview..." -ForegroundColor Yellow
+$profilePath = "C:\notebooklm-playwright-profile"
+python -m src.notebooklm_automation `
+    --sources "output\notebooklm_research_brief.md" `
+    --prompt "output\notebooklm_prompt.txt" `
+    --profile "$profilePath" `
+    --output "output\notebooklm" `
+    --timeout-minutes 75
+
+# 5. Generate Thumbnail (if font exists)
+if (Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") {
+    Write-Host "`n[3/4] Generating Thumbnail..." -ForegroundColor Yellow
+    $meta = Get-Content "output\metadata.json" | ConvertFrom-Json
+    $thumbText = $meta.thumbnail_text
+    if ($thumbText) {
+        python -m src.thumbnail --text "$thumbText" --output "output\thumbnail.jpg" --font "assets\fonts\NotoSansDevanagari-Bold.ttf"
+    }
+} else {
+    Write-Host "`n[3/4] Skipping thumbnail (NotoSansDevanagari font not installed)." -ForegroundColor Gray
+}
+
+# 6. Upload to YouTube
+Write-Host "`n[4/4] Uploading Video to YouTube (Private)..." -ForegroundColor Yellow
+$videoFile = "output\notebooklm\notebooklm_video.mp4"
+if (Test-Path $videoFile) {
+    if (Test-Path "output\thumbnail.jpg") {
+        python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --thumbnail "output\thumbnail.jpg" --result "output\upload_result.json"
+    } else {
+        python -m src.youtube_upload --video "$videoFile" --metadata "output\metadata.json" --privacy private --result "output\upload_result.json"
+    }
+    Write-Host "`n==========================================================" -ForegroundColor Green
+    Write-Host "  SUCCESS! Video generated and uploaded to YouTube!" -ForegroundColor Green
+    Write-Host "==========================================================" -ForegroundColor Green
+} else {
+    Write-Host "`n[ERROR] Video file not found at $videoFile" -ForegroundColor Red
+}
