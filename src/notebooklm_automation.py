@@ -57,13 +57,15 @@ def normalize_cookie(c):
         cookie["secure"] = bool(c["secure"])
 
     # sameSite: strictly check none/no_restriction BEFORE strict
-    ss = str(c.get("sameSite", "")).lower().strip()
-    if ss in ("none", "no_restriction"):
-        cookie["sameSite"] = "None"
-    elif ss == "lax":
-        cookie["sameSite"] = "Lax"
-    elif ss == "strict":
-        cookie["sameSite"] = "Strict"
+    raw_ss = c.get("sameSite")
+    if raw_ss is not None:
+        ss = str(raw_ss).lower().strip()
+        if ss in ("none", "no_restriction"):
+            cookie["sameSite"] = "None"
+        elif ss == "lax":
+            cookie["sameSite"] = "Lax"
+        elif ss == "strict":
+            cookie["sameSite"] = "Strict"
 
     return cookie
 
