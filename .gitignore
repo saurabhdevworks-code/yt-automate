@@ -11,6 +11,8 @@ assets/fonts/*
 !assets/fonts/README.md
 
 storage_state.json
+master_token.json
+*.master_token.json
 *.png
 
 .*.lock
