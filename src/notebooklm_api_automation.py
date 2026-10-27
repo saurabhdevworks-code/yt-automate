@@ -29,6 +29,14 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     target_mp4 = out_dir / "notebooklm_video.mp4"
 
+    # [RESUME CHECK] If video already exists from a previous step / run, reuse it!
+    if target_mp4.exists() and target_mp4.stat().st_size > 50000:
+        print("\n==========================================================")
+        print(f" [RESUME] Found existing completed video: {target_mp4} ({target_mp4.stat().st_size:,} bytes)")
+        print(f" Skipping NotebookLM generation and reusing existing video!")
+        print("==========================================================\n")
+        return
+
     # Use title from metadata if available
     if args.title == "AI Hindi Video Overview" and Path("output/metadata.json").exists():
         try:

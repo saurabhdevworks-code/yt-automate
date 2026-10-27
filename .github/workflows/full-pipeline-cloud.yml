@@ -2,11 +2,18 @@ name: Full NotebookLM Pipeline (100% Cloud Server - No PC Required)
 
 on:
   workflow_dispatch:
+    inputs:
+      force_fresh:
+        description: 'Force fresh run (ignore previous cache/artifacts)'
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: "30 3 * * *" # 09:00 IST daily
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   pipeline:
@@ -16,6 +23,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Get current date (UTC)
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -60,7 +71,46 @@ jobs:
               sys.exit(1)
           '
 
+      - name: Restore previous pipeline cache (Resume on failure)
+        if: ${{ !inputs.force_fresh }}
+        uses: actions/cache/restore@v4
+        id: cache-restore
+        with:
+          path: output
+          key: pipeline-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            pipeline-state-${{ github.run_id }}-
+            pipeline-state-daily-${{ steps.date.outputs.date }}-
+            pipeline-state-
+
+      - name: Recover previous run video artifact (if cache missed)
+        if: ${{ !inputs.force_fresh }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p output
+          # If previous video was already successfully uploaded to YouTube, do not reuse it (allow fresh daily video)
+          if [ -f output/upload_result.json ]; then
+            echo "[RESUME] Previous video was already successfully uploaded to YouTube."
+            echo "Starting fresh for new content."
+            rm -rf output/*
+          fi
+
+          # If video is not yet on disk, recover from latest workflow artifact
+          if [ ! -f output/notebooklm/notebooklm_video.mp4 ]; then
+            echo "Checking if latest run artifact has an unuploaded video..."
+            gh run download --name full-notebooklm-pipeline-results --dir output 2>/dev/null || true
+            if [ -f output/upload_result.json ]; then
+              echo "Recovered artifact was already uploaded to YouTube. Cleaning to create fresh video."
+              rm -rf output/*
+            elif [ -f output/notebooklm/notebooklm_video.mp4 ]; then
+              echo "[RESUME] Found unuploaded video from previous run! Reusing it to skip video generation."
+            fi
+          fi
+
       - name: Generate research pack
+        id: gen_pack
+        if: ${{ !hashFiles('output/metadata.json') || !hashFiles('output/notebooklm_research_brief.md') }}
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m src.generate_pack --settings config/settings.json --output output
@@ -68,16 +118,21 @@ jobs:
       - name: Find latest research pack
         id: pack
         run: |
-          d=$(ls -td output/research-* | head -1)
-          if [ -z "$d" ]; then echo "No research pack found" && exit 1; fi
-          echo "dir=$d" >> $GITHUB_OUTPUT
+          d=$(ls -td output/research-* 2>/dev/null | head -1)
+          if [ -n "$d" ]; then echo "dir=$d" >> $GITHUB_OUTPUT; fi
 
       - name: Prepare NotebookLM files
         run: |
-          d="${{ steps.pack.outputs.dir }}"
-          cp "$d/research_brief.md" output/notebooklm_research_brief.md
-          cp "$d/notebooklm_prompt.txt" output/notebooklm_prompt.txt
-          cp "$d/metadata.json" output/metadata.json
+          if [ -n "${{ steps.pack.outputs.dir }}" ]; then
+            d="${{ steps.pack.outputs.dir }}"
+            cp "$d/research_brief.md" output/notebooklm_research_brief.md
+            cp "$d/notebooklm_prompt.txt" output/notebooklm_prompt.txt
+            cp "$d/metadata.json" output/metadata.json
+          fi
+          if [ ! -f output/notebooklm_research_brief.md ] || [ ! -f output/metadata.json ]; then
+            echo "::error::Research brief or metadata missing in output/"
+            exit 1
+          fi
 
       - name: Generate and download video from NotebookLM (Cloud)
         env:
@@ -91,6 +146,7 @@ jobs:
               --timeout-minutes 75
 
       - name: Create thumbnail when Devanagari font is configured
+        if: ${{ !hashFiles('output/thumbnail.jpg') }}
         run: |
           if [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
             thumb_text=$(python -c "import json; print(json.load(open('output/metadata.json')).get('thumbnail_text', ''))")
@@ -111,6 +167,13 @@ jobs:
             python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy private --result output/upload_result.json
           fi
 
+      - name: Save pipeline cache for resumption
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: output
+          key: pipeline-state-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Save Pipeline Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -119,4 +182,3 @@ jobs:
           path: output/
           if-no-files-found: warn
           retention-days: 14
-

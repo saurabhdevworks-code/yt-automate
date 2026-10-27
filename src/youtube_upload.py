@@ -66,6 +66,21 @@ def main():
     ap.add_argument("--thumbnail")
     ap.add_argument("--result", default="upload_result.json")
     a = ap.parse_args()
+
+    # [RESUME CHECK] If already uploaded, do not upload duplicate
+    res_path = Path(a.result)
+    if res_path.exists():
+        try:
+            prev = json.loads(res_path.read_text(encoding="utf-8"))
+            if prev.get("video_id") and prev.get("url"):
+                print("\n==========================================================")
+                print(f" [RESUME] Video was ALREADY uploaded to YouTube successfully!")
+                print(f" Video URL: {prev['url']}")
+                print("==========================================================\n")
+                return
+        except Exception:
+            pass
+
     metadata = json.loads(Path(a.metadata).read_text(encoding="utf-8"))
     result = upload(a.video, metadata, a.privacy, a.thumbnail)
     Path(a.result).parent.mkdir(parents=True, exist_ok=True)
