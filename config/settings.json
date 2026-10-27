@@ -1,16 +1,32 @@
 {
-  "niche": "AI and Technology",
-  "target_audience": "Hindi-speaking Indians aged 18-35",
+  "channel_name": "Kisan bdlega",
+  "niche": "Farming and Agriculture",
+  "country": "India",
+  "location": "India",
   "language": "Hindi",
+  "target_audience": "भारतीय किसान, ग्रामीण युवा और आधुनिक खेती सीखने वाले कृषि उद्यमी",
+  "video_style": "सरल, आकर्षक और ज्ञानवर्धक हिंदी कृषि गाइड (Educational Hindi Farming Explainer)",
   "duration_min_minutes": 4,
   "duration_max_minutes": 8,
-  "video_style": "Educational explainer",
-  "max_topics": 8,
+  "max_topics": 10,
   "rss_feeds": [
-    "https://blog.google/technology/ai/rss/",
-    "https://www.technologyreview.com/feed/",
-    "https://feeds.bbci.co.uk/news/technology/rss.xml"
+    "https://news.google.com/rss/search?q=कृषि+खेती+किसान+योजना+तकनीक+India&hl=hi&gl=IN&ceid=IN:hi",
+    "https://hindi.krishijagran.com/feeds/rss/",
+    "https://news.google.com/rss/search?q=Indian+agriculture+farming+technology+kisan&hl=en-IN&gl=IN&ceid=IN:en"
   ],
-  "wikipedia_language": "en",
+  "wikipedia_language": "hi",
+  "wikipedia_search_terms": [
+    "भारत में कृषि",
+    "जैविक खेती",
+    "ड्रिप सिंचाई",
+    "पीएम किसान सम्मान निधि",
+    "स्मार्ट फार्मिंग"
+  ],
+  "thumbnail_fonts": [
+    "Mukta",
+    "Hind",
+    "Poppins",
+    "Baloo"
+  ],
   "youtube_category_id": "27"
 }

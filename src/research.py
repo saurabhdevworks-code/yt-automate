@@ -3,12 +3,12 @@ import html, re
 from urllib.parse import quote
 import feedparser, requests
 
-UA = "NotebookLMHindiYouTubeResearch/1.0"
+UA = "KisanBadlegaYouTubeResearch/1.0 (Agriculture Explainer Pipeline)"
 
 def clean(text):
     return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", text or ""))).strip()
 
-def rss_items(urls, per_feed=20):
+def rss_items(urls, per_feed=25):
     items, seen = [], set()
     for url in urls:
         try:
@@ -29,7 +29,7 @@ def rss_items(urls, per_feed=20):
             print(f"WARNING: RSS feed failed: {url}: {exc}")
     return items
 
-def wikipedia_search(query, language="en", limit=8):
+def wikipedia_search(query, language="hi", limit=8):
     endpoint = f"https://{language}.wikipedia.org/w/api.php"
     try:
         response = requests.get(endpoint, params={
@@ -42,22 +42,32 @@ def wikipedia_search(query, language="en", limit=8):
             "title": hit.get("title", ""),
             "url": f"https://{language}.wikipedia.org/wiki/{quote(hit.get('title','').replace(' ', '_'))}",
             "summary": clean(hit.get("snippet", "")),
-            "publisher": "Wikipedia (discovery only; verify primary sources)",
+            "publisher": f"Wikipedia ({language})",
             "published": "",
             "retrieved_at": datetime.now(timezone.utc).isoformat()
         } for hit in hits]
     except Exception as exc:
-        print(f"WARNING: Wikipedia search failed: {exc}")
+        print(f"WARNING: Wikipedia search failed ({query}): {exc}")
         return []
 
 def discover_topics(settings):
     items = rss_items(settings.get("rss_feeds", []))
-    items += wikipedia_search(settings.get("niche", "Technology"),
-                              settings.get("wikipedia_language", "en"), 10)
-    terms = [t.lower() for t in re.findall(r"[a-zA-Z0-9]+", settings.get("niche", "")) if len(t) > 2]
+
+    # Wikipedia terms for Indian agriculture
+    wiki_lang = settings.get("wikipedia_language", "hi")
+    search_terms = settings.get("wikipedia_search_terms", ["भारत में कृषि", "जैविक खेती", "स्मार्ट फार्मिंग"])
+    for term in search_terms[:3]:
+        items += wikipedia_search(term, language=wiki_lang, limit=4)
+
+    # Keywords to score and prioritize top farming topics
+    keywords = [
+        "किसान", "खेती", "कृषि", "फसल", "बीज", "खाद", "योजना", "सिंचाई", "उत्पादन",
+        "kisan", "farming", "agriculture", "crop", "soil", "organic", "tractor", "yield"
+    ]
     for item in items:
         body = f"{item['title']} {item['summary']}".lower()
-        item["score"] = sum(2 for term in terms if term in body) + (1 if item.get("published") else 0)
-        item["score_note"] = "Heuristic relevance score; not YouTube search volume."
+        item["score"] = sum(2 for kw in keywords if kw.lower() in body) + (1 if item.get("published") else 0)
+        item["score_note"] = "Relevance score based on farming and agriculture niche."
+
     items.sort(key=lambda item: (item["score"], bool(item.get("published"))), reverse=True)
-    return items[:max(1, int(settings.get("max_topics", 8)))]
+    return items[:max(1, int(settings.get("max_topics", 10)))]

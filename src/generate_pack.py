@@ -1,4 +1,11 @@
-import argparse, json, os, re
+import argparse, json, os, re, sys
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 from pathlib import Path
 from datetime import datetime, timezone
 import requests
@@ -6,23 +13,61 @@ from src.research import discover_topics
 
 ROOT = Path(__file__).resolve().parents[1]
 
-def generate_metadata(topic, audience):
-    fallback = {
-        "title": f"{topic} | आसान हिंदी में समझें",
-        "description": f"{topic}\n\nइस वीडियो में विषय को सरल हिंदी में समझाया जाएगा। कृपया मूल स्रोतों की जाँच करें।",
-        "tags": ["Hindi", "Education", "Technology", "Explained in Hindi"],
-        "hashtags": ["#Hindi", "#Education", "#Technology"],
-        "thumbnail_text": "आसान हिंदी में"
+def load_context():
+    ctx_path = ROOT / "config" / "channel_context.json"
+    if ctx_path.exists():
+        try:
+            return json.loads(ctx_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "channel_name": "Kisan bdlega",
+        "niche": "Farming and Agriculture",
+        "country": "India",
+        "location": "India",
+        "language": "Hindi",
+        "target_audience": "भारतीय किसान, ग्रामीण युवा और आधुनिक कृषि उद्यमी",
+        "thumbnail_fonts": ["Mukta", "Hind", "Poppins", "Baloo"]
     }
+
+def generate_metadata(topic, audience, channel_info):
+    ch_name = channel_info.get("channel_name", "Kisan bdlega")
+    fallback = {
+        "title": f"{topic} | {ch_name} - किसान बदलेगा",
+        "description": (
+            f"स्वागत है '{ch_name}' पर!\n\n"
+            f"इस वीडियो में हम बात करेंगे: {topic} के बारे में। "
+            f"आधुनिक खेती, उन्नत बीज, नई कृषि तकनीक, खाद प्रबंधन और सरकारी योजनाओं की पूरी जानकारी।\n\n"
+            f"📌 चैनल को Subscribe करें और अपनी खेती को बनाएं अधिक मुनाफेदार!\n"
+            f"किसान बदलेगा तो देश बदलेगा! 🌾\n\n"
+            f"#KisanBdlega #KhetiBadi #SmartFarming #IndianAgriculture #KisanYojana"
+        ),
+        "tags": [
+            ch_name, "Kisan bdlega", "Kisan Badlega", "Kheti Badi", "Aadhunik Kheti",
+            "Smart Farming India", "Krishi Gyan", "Indian Agriculture", "Kisan Yojana",
+            "Crop Protection", "Organic Farming India", "Hindi Farming Guide"
+        ],
+        "hashtags": ["#KisanBdlega", "#KhetiBadi", "#SmartFarming", "#IndianAgriculture"],
+        "thumbnail_text": "किसान बदलेगा"
+    }
+
     key = os.getenv("GEMINI_API_KEY")
     if not key:
         return fallback
+
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     prompt = (
-        "Create accurate YouTube metadata in natural Hindi. Do not invent facts or citations. "
-        "Return only valid JSON with keys title, description, tags (array), hashtags (array), thumbnail_text. "
-        f"Topic: {topic}. Audience: {audience}. Title must be engaging but not misleading. "
-        "Thumbnail text must be short (2-5 words)."
+        f"You are the head YouTube strategist for the popular Indian farming channel '{ch_name}'.\n"
+        f"Niche: Farming and Agriculture in India.\n"
+        f"Topic: {topic}\n"
+        f"Target Audience: {audience}\n"
+        "Requirements:\n"
+        "1. title: Eye-catching, click-worthy Hindi title for Indian farmers (under 90 chars). Include channel branding or farming hook.\n"
+        "2. description: Detailed, informative Hindi description with intro, bullet points, call-to-action for 'Kisan bdlega', and hashtags.\n"
+        "3. tags: Array of 20-30 high-ranking Hindi & English YouTube search tags related to Indian farming and this topic.\n"
+        "4. hashtags: 3-5 relevant hashtags including #KisanBdlega.\n"
+        "5. thumbnail_text: 2-4 punchy Hindi Devanagari words that farmers can read easily on mobile screens.\n"
+        "Return ONLY a valid JSON object matching these keys."
     )
     try:
         r = requests.post(
@@ -41,7 +86,7 @@ def generate_metadata(topic, audience):
             obj.setdefault(k, v)
         return obj
     except Exception as exc:
-        print(f"WARNING: Gemini metadata failed; using fallback: {exc}")
+        print(f"WARNING: Gemini metadata generation failed; using fallback: {exc}")
         return fallback
 
 def main():
@@ -54,20 +99,23 @@ def main():
     ap.add_argument("--custom-tags", default="", help="Custom YouTube tags (comma-separated)")
     args = ap.parse_args()
 
+    channel_info = load_context()
     settings = json.loads((ROOT / args.settings).read_text(encoding="utf-8"))
+
+    ch_name = channel_info.get("channel_name", "Kisan bdlega")
 
     if args.custom_topic.strip():
         topic = args.custom_topic.strip()
-        print(f"\n[CUSTOM MODE] Using user-specified topic: '{topic}'")
+        print(f"\n[CUSTOM MODE - {ch_name}] Topic: '{topic}'")
         topics = [{
             "title": topic,
-            "url": "https://notebooklm.google.com/",
-            "publisher": "Custom User Topic",
+            "url": "https://krishijagran.com/",
+            "publisher": f"{ch_name} (Custom Agriculture Topic)",
             "published": datetime.now(timezone.utc).isoformat(),
-            "summary": f"Comprehensive explainer and breakdown of {topic}."
+            "summary": f"Complete guide and actionable advice on {topic} for Indian farmers."
         }]
     else:
-        print("\n[AUTO MODE] Discovering trending topics automatically via RSS & web feeds...")
+        print(f"\n[AUTO MODE - {ch_name}] Searching trending farming & agriculture topics in India...")
         topics = discover_topics(settings)
         if not topics:
             raise SystemExit("No research results were found. Check network/RSS or add sources manually.")
@@ -77,9 +125,9 @@ def main():
     out = ROOT / args.output / f"research-{stamp}"
     out.mkdir(parents=True, exist_ok=True)
 
-    metadata = generate_metadata(topic, settings.get("target_audience", "Hindi viewers"))
-    
-    # Override with custom metadata if provided by user
+    metadata = generate_metadata(topic, settings.get("target_audience", channel_info.get("target_audience")), channel_info)
+
+    # Apply manual custom overrides if specified
     if args.custom_title.strip():
         metadata["title"] = args.custom_title.strip()[:100]
     if args.custom_description.strip():
@@ -92,51 +140,52 @@ def main():
     (out / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
     source_lines = "\n".join(
-        f"- [{x['title']}]({x['url']}) — {x.get('publisher','')} | {x.get('published','')}\n  - Notes: {x.get('summary','')}"
+        f"- [{x['title']}]({x['url']}) — {x.get('publisher','')} | {x.get('published','')}\n  - विवरण: {x.get('summary','')}"
         for x in topics
     )
-    brief = f"""# Research brief
+    brief = f"""# Research Brief: {ch_name}
 
-- Topic: {topic}
-- Niche: {settings.get('niche')}
-- Audience: {settings.get('target_audience')}
-- Language: {settings.get('language', 'Hindi')}
-- Target duration: {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes
-- Generated: {datetime.now(timezone.utc).isoformat()}
+- चैनल (Channel): {ch_name}
+- क्षेत्र (Niche): {channel_info.get('niche', 'Farming and Agriculture')}
+- देश (Country/Location): {channel_info.get('country', 'India')}
+- भाषा (Language): {channel_info.get('language', 'Hindi')}
+- दर्शक (Target Audience): {channel_info.get('target_audience')}
+- विज़न (Vision): {channel_info.get('channel_vision')}
+- समय (Duration): {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} मिनट
 
-## Candidate topic
+## मुख्य विषय (Main Topic)
 {topic}
 
-## Detailed Overview
-This brief guides NotebookLM to create an engaging Hindi Video Overview explaining {topic}.
-Key aspects to cover:
-1. Clear explanation of what {topic} is and why it matters today.
-2. Background context, origin, and key developments.
-3. Real-world impact and India-relevant analogies or examples.
-4. Summary takeaway and future outlook.
+## विषय का सार व उद्देश्य
+यह रिसर्च ब्रीफ भारतीय किसानों के लिए तैयार किया गया है।
+इस वीडियो का उद्देश्य किसानों को सरल और व्यावहारिक हिंदी में सही मार्गदर्शन देना है ताकि वे अपनी खेती से अधिकतम मुनाफा कमा सकें।
+प्रमुख बिंदु:
+1. विषय की बुनियादी और जरूरी जानकारी।
+2. आधुनिक तकनीक, उन्नत किस्म, या सरकारी योजना का किसानों को सीधा फायदा।
+3. सावधानियां, सही समय और लागत-मुनाफे का विश्लेषण।
+4. किसानों के लिए उपयोगी निष्कर्ष (Actionable Takeaway)।
 
-## Sources
+## संदर्भ व स्रोत (Sources)
 {source_lines}
 """
     (out / "research_brief.md").write_text(brief, encoding="utf-8")
-    prompt = f"""Create a comprehensive Hindi Video Overview for {settings.get('target_audience', 'Hindi-speaking viewers')}.
+
+    prompt = f"""Create an engaging Hindi Video Overview for the Indian agriculture channel '{ch_name}'.
 Topic: {topic}
-Style: {settings.get('video_style', 'Educational explainer')}.
-Aim for {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes.
-Start with a strong, curiosity-inducing hook. Explain key ideas in clean, simple conversational Hindi. Maintain a logical narrative flow from introduction to deep-dive to conclusion. Avoid unsupported claims. Ensure the visuals and narration are clear and engaging.
-The final video must be generated using Google NotebookLM Video Overview in Hindi.
+Language: Natural, conversational, respectful Hindi suitable for Indian farmers and rural youth.
+Style: Practical, educational, encouraging farming explainer.
+Duration aim: {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes.
+
+Instructions:
+1. Start with a warm, respectful greeting and a strong hook that highlights the practical benefit for farmers.
+2. Explain concepts in clear, easy Hindi without complicated academic jargon. Use real-world examples from Indian farming.
+3. Structure clearly: Problem/Context -> Modern Solutions/Best Practices -> Government Support/Techniques -> Actionable Advice.
+4. Conclude with an inspiring takeaway reinforcing the channel's motto: "किसान बदलेगा तो देश बदलेगा".
+5. Use Google NotebookLM Video Overview in Hindi only.
 """
     (out / "notebooklm_prompt.txt").write_text(prompt, encoding="utf-8")
-    handoff = f"""# NotebookLM handoff
-
-1. Open https://notebooklm.google.com/
-2. Create a notebook for: {topic}
-3. Sources and notes are in `research_brief.md`.
-4. In Studio, choose Video Overview (Language: Hindi).
-"""
-    (out / "NOTEBOOKLM_HANDOFF.md").write_text(handoff, encoding="utf-8")
-    print(f"Research pack: {out}")
-    print(f"Selected topic: {topic}")
+    print(f"Research pack created: {out}")
+    print(f"Topic: {topic}")
 
 if __name__ == "__main__":
     main()
