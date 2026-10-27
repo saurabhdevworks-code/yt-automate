@@ -51,25 +51,38 @@ def main():
     if auth_res.returncode != 0:
         print("\n[AUTH NOTICE] Token fetch check failed. Attempting to refresh / re-mint session...")
         refresh_res = run_cmd(["notebooklm", "--storage", storage_path, "auth", "refresh"], check=False)
-        # Verify again after refresh attempt
         auth_retry = run_cmd(["notebooklm", "--storage", storage_path, "auth", "check", "--test"], check=False)
         if auth_retry.returncode != 0:
             print("\n[AUTH ERROR] Could not authenticate with Google NotebookLM.", file=sys.stderr)
             print("Session cookies have expired and no valid Master Token was found.", file=sys.stderr)
-            print("To make authentication permanent so it NEVER expires:", file=sys.stderr)
-            print("  Run 'python scripts/setup_master_token.py' locally, and save the result as NOTEBOOKLM_MASTER_TOKEN_JSON in GitHub Secrets.\n", file=sys.stderr)
             raise RuntimeError("Authentication expired or invalid. Please configure NOTEBOOKLM_MASTER_TOKEN_JSON.")
 
     # 2. Create Notebook and set as active context
     print(f"[2/5] Creating notebook: {args.title}...")
     run_cmd(["notebooklm", "--storage", storage_path, "create", args.title, "-u"])
 
-    # 3. Add Sources
+    # 3. Add Sources & Wait for indexing
     print("[3/5] Adding research sources...")
+    source_ids = []
     for src in args.sources:
         src_path = str(Path(src).resolve())
         print(f"Adding source: {src_path}")
-        run_cmd(["notebooklm", "--storage", storage_path, "source", "add", src_path])
+        add_res = run_cmd(["notebooklm", "--storage", storage_path, "source", "add", src_path])
+        for line in (add_res.stdout or "").splitlines():
+            if "Added source:" in line:
+                sid = line.split("Added source:")[-1].strip()
+                source_ids.append(sid)
+
+    # Crucial: Wait for Google's server to finish parsing the source document
+    if source_ids:
+        for sid in source_ids:
+            print(f"Waiting for source {sid} to finish indexing on Google servers...")
+            run_cmd(["notebooklm", "--storage", storage_path, "source", "wait", sid, "--timeout", "180"], check=False)
+    else:
+        print("Waiting 15 seconds for source indexing...")
+        time.sleep(15)
+
+    time.sleep(5)
 
     # 4. Generate Video (Trigger and wait) with automatic rate-limit cooldown handling
     print(f"[4/5] Triggering Hindi Video Overview generation (max wait: {args.timeout_minutes}m)...")
@@ -79,11 +92,15 @@ def main():
     gen_cmd = [
         "notebooklm", "--storage", storage_path,
         "generate", "video",
-        "--prompt-file", prompt_file,
         "--language", "hi",
         "--wait",
         "--timeout", str(timeout_sec)
     ]
+    if source_ids:
+        for sid in source_ids:
+            gen_cmd.extend(["-s", sid])
+    if Path(prompt_file).exists() and Path(prompt_file).stat().st_size > 0:
+        gen_cmd.extend(["--prompt-file", prompt_file])
 
     max_attempts = 4
     delay_sec = 300  # 5 minutes cooldown between attempts
@@ -93,10 +110,29 @@ def main():
             break
         
         combined_err = (res.stdout or "") + "\n" + (res.stderr or "")
+
+        # Fallback: if server rejected custom prompt file, retry with default prompt over the ready sources
+        if ("invalid argument" in combined_err.lower() or "rpc_code=3" in combined_err.lower()) and "--prompt-file" in gen_cmd:
+            print("\n[FALLBACK] Custom prompt rejected by server. Retrying with direct Hindi generation...")
+            fallback_cmd = [
+                "notebooklm", "--storage", storage_path,
+                "generate", "video",
+                "--language", "hi",
+                "--wait",
+                "--timeout", str(timeout_sec)
+            ]
+            if source_ids:
+                for sid in source_ids:
+                    fallback_cmd.extend(["-s", sid])
+            res = run_cmd(fallback_cmd, check=False)
+            if res.returncode == 0:
+                break
+            combined_err = (res.stdout or "") + "\n" + (res.stderr or "")
+
         if "Rate limited" in combined_err or "RateLimitError" in combined_err or "rate_limit" in combined_err.lower():
             if attempt < max_attempts:
-                print(f"\n[RATE-LIMIT COOLDOWN] Google NotebookLM has a temporary cooldown after generating a video.")
-                print(f"Waiting 5 minutes for quota reset before retry ({attempt}/{max_attempts - 1})...\n")
+                print(f"\n[RATE-LIMIT COOLDOWN] Google NotebookLM temporary quota cooldown.")
+                print(f"Waiting 5 minutes before retry ({attempt}/{max_attempts - 1})...\n")
                 time.sleep(delay_sec)
                 continue
         raise RuntimeError(f"Command failed with code {res.returncode}: {' '.join(gen_cmd)}")

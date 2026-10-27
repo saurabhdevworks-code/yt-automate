@@ -170,18 +170,12 @@ def main():
 """
     (out / "research_brief.md").write_text(brief, encoding="utf-8")
 
-    prompt = f"""Create an engaging Hindi Video Overview for the Indian agriculture channel '{ch_name}'.
+    prompt = f"""Create an engaging Hindi Video Overview for Indian farmers and rural youth.
+Channel: {ch_name}
 Topic: {topic}
-Language: Natural, conversational, respectful Hindi suitable for Indian farmers and rural youth.
-Style: Practical, educational, encouraging farming explainer.
-Duration aim: {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} minutes.
-
-Instructions:
-1. Start with a warm, respectful greeting and a strong hook that highlights the practical benefit for farmers.
-2. Explain concepts in clear, easy Hindi without complicated academic jargon. Use real-world examples from Indian farming.
-3. Structure clearly: Problem/Context -> Modern Solutions/Best Practices -> Government Support/Techniques -> Actionable Advice.
-4. Conclude with an inspiring takeaway reinforcing the channel's motto: "किसान बदलेगा तो देश बदलेगा".
-5. Use Google NotebookLM Video Overview in Hindi only.
+Language: Natural, conversational, respectful Hindi.
+Style: Practical and educational farming explainer.
+Focus on practical benefits, modern techniques, cost-profit analysis, and actionable advice for farmers.
 """
     (out / "notebooklm_prompt.txt").write_text(prompt, encoding="utf-8")
     print(f"Research pack created: {out}")
