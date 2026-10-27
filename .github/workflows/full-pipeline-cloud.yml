@@ -96,38 +96,60 @@ jobs:
             rm -rf output/*
           fi
 
-          # If video is not yet on disk, recover from latest workflow artifact
+          # If video is not yet on disk, search recent runs for unuploaded video artifact
           if [ ! -f output/notebooklm/notebooklm_video.mp4 ]; then
-            echo "Checking if latest run artifact has an unuploaded video..."
-            gh run download --name full-notebooklm-pipeline-results --dir output 2>/dev/null || true
-            if [ -f output/upload_result.json ]; then
-              echo "Recovered artifact was already uploaded to YouTube. Cleaning to create fresh video."
-              rm -rf output/*
-            elif [ -f output/notebooklm/notebooklm_video.mp4 ]; then
-              echo "[RESUME] Found unuploaded video from previous run! Reusing it to skip video generation."
-            fi
+            echo "Searching for unuploaded video artifact in recent workflow runs..."
+            RUN_IDS=$(gh run list --workflow="full-pipeline-cloud.yml" --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || gh run list --limit 15 --json databaseId -q '.[].databaseId' 2>/dev/null || echo "")
+            for rid in $RUN_IDS; do
+              echo "Checking run $rid..."
+              rm -rf /tmp/art_check
+              mkdir -p /tmp/art_check
+              if gh run download "$rid" --name full-notebooklm-pipeline-results --dir /tmp/art_check 2>/dev/null; then
+                # Handle nested or flat extraction
+                VID=$(find /tmp/art_check -name "notebooklm_video.mp4" 2>/dev/null | head -1)
+                UP_RES=$(find /tmp/art_check -name "upload_result.json" 2>/dev/null | head -1)
+                if [ -n "$UP_RES" ]; then
+                  echo "Run $rid video was already uploaded to YouTube. Skipping."
+                elif [ -n "$VID" ]; then
+                  echo "=========================================================="
+                  echo "[RESUME] Found unuploaded video in run $rid!"
+                  echo "=========================================================="
+                  # Copy all recovered files to output/
+                  mkdir -p output/notebooklm
+                  cp "$VID" output/notebooklm/notebooklm_video.mp4
+                  META=$(find /tmp/art_check -name "metadata.json" 2>/dev/null | head -1)
+                  BRIEF=$(find /tmp/art_check -name "*research_brief.md" 2>/dev/null | head -1)
+                  THUMB=$(find /tmp/art_check -name "thumbnail.jpg" 2>/dev/null | head -1)
+                  [ -n "$META" ] && cp "$META" output/metadata.json
+                  [ -n "$BRIEF" ] && cp "$BRIEF" output/notebooklm_research_brief.md
+                  [ -n "$THUMB" ] && cp "$THUMB" output/thumbnail.jpg
+                  ls -lh output/notebooklm/notebooklm_video.mp4
+                  break
+                fi
+              fi
+            done
           fi
 
       - name: Generate research pack
         id: gen_pack
-        if: ${{ !hashFiles('output/metadata.json') || !hashFiles('output/notebooklm_research_brief.md') }}
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python -m src.generate_pack --settings config/settings.json --output output
-
-      - name: Find latest research pack
-        id: pack
         run: |
-          d=$(ls -td output/research-* 2>/dev/null | head -1)
-          if [ -n "$d" ]; then echo "dir=$d" >> $GITHUB_OUTPUT; fi
+          if [ -f output/metadata.json ] && [ -f output/notebooklm_research_brief.md ]; then
+            echo "[RESUME] Metadata and research brief already present. Skipping pack generation."
+          else
+            python -m src.generate_pack --settings config/settings.json --output output
+          fi
 
       - name: Prepare NotebookLM files
         run: |
-          if [ -n "${{ steps.pack.outputs.dir }}" ]; then
-            d="${{ steps.pack.outputs.dir }}"
-            cp "$d/research_brief.md" output/notebooklm_research_brief.md
-            cp "$d/notebooklm_prompt.txt" output/notebooklm_prompt.txt
-            cp "$d/metadata.json" output/metadata.json
+          if [ ! -f output/notebooklm_research_brief.md ] || [ ! -f output/metadata.json ]; then
+            d=$(ls -td output/research-* 2>/dev/null | head -1)
+            if [ -n "$d" ]; then
+              cp "$d/research_brief.md" output/notebooklm_research_brief.md
+              cp "$d/notebooklm_prompt.txt" output/notebooklm_prompt.txt
+              cp "$d/metadata.json" output/metadata.json
+            fi
           fi
           if [ ! -f output/notebooklm_research_brief.md ] || [ ! -f output/metadata.json ]; then
             echo "::error::Research brief or metadata missing in output/"
@@ -146,9 +168,10 @@ jobs:
               --timeout-minutes 75
 
       - name: Create thumbnail when Devanagari font is configured
-        if: ${{ !hashFiles('output/thumbnail.jpg') }}
         run: |
-          if [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
+          if [ -f output/thumbnail.jpg ]; then
+            echo "[RESUME] Thumbnail already exists. Skipping."
+          elif [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
             thumb_text=$(python -c "import json; print(json.load(open('output/metadata.json')).get('thumbnail_text', ''))")
             if [ -n "$thumb_text" ]; then
               python -m src.thumbnail --text "$thumb_text" --output output/thumbnail.jpg --font assets/fonts/NotoSansDevanagari-Bold.ttf || true
