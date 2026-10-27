@@ -6,4 +6,5 @@ google-auth>=2.35,<3
 google-auth-httplib2>=0.2,<1
 google-auth-oauthlib>=1.2,<2
 playwright>=1.49,<2
-notebooklm-py>=0.8.5
+notebooklm-py[browser,headless]>=0.8.5
+gpsoauth>=1.1.0

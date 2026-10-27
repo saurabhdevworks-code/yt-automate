@@ -49,27 +49,50 @@ jobs:
 
       - name: Restore NotebookLM Session
         env:
+          NOTEBOOKLM_MASTER_TOKEN_JSON: ${{ secrets.NOTEBOOKLM_MASTER_TOKEN_JSON }}
           NOTEBOOKLM_AUTH_JSON: ${{ secrets.NOTEBOOKLM_AUTH_JSON }}
         run: |
           python -c '
           import os, sys, json
-          val = os.environ.get("NOTEBOOKLM_AUTH_JSON", "").strip()
-          if not val:
-              print("::error::NOTEBOOKLM_AUTH_JSON secret is missing or empty in GitHub Secrets!")
-              print("To fix: Run \"python scripts/notebooklm_login.py\" locally, copy storage_state.json, and add it to GitHub Settings -> Secrets -> Actions as NOTEBOOKLM_AUTH_JSON.")
-              sys.exit(1)
-          try:
-              data = json.loads(val)
-              cookies = data if isinstance(data, list) else data.get("cookies", [])
-              print(f"Session successfully validated: found {len(cookies)} cookies.")
-              if len(cookies) == 0:
-                  print("::warning::No cookies found in NOTEBOOKLM_AUTH_JSON secret. Session may fail.")
-              with open("storage_state.json", "w", encoding="utf-8") as f:
-                  f.write(val)
-          except Exception as e:
-              print(f"::error::NOTEBOOKLM_AUTH_JSON is not valid JSON: {e}")
+          from pathlib import Path
+
+          master_val = os.environ.get("NOTEBOOKLM_MASTER_TOKEN_JSON", "").strip()
+          auth_val = os.environ.get("NOTEBOOKLM_AUTH_JSON", "").strip()
+
+          if master_val:
+              print("Found NOTEBOOKLM_MASTER_TOKEN_JSON! Setting up permanent Master Token auth...")
+              try:
+                  data = json.loads(master_val)
+                  Path("master_token.json").write_text(master_val, encoding="utf-8")
+                  prof_dir = Path.home() / ".notebooklm" / "profiles" / "default"
+                  prof_dir.mkdir(parents=True, exist_ok=True)
+                  (prof_dir / "master_token.json").write_text(master_val, encoding="utf-8")
+                  print(f"Master Token configured successfully for: {data.get(\"email\", \"configured user\")}")
+              except Exception as e:
+                  print(f"::error::NOTEBOOKLM_MASTER_TOKEN_JSON is not valid JSON: {e}")
+                  sys.exit(1)
+          elif auth_val:
+              print("Found legacy NOTEBOOKLM_AUTH_JSON cookies. (Note: These expire; recommend upgrading to NOTEBOOKLM_MASTER_TOKEN_JSON).")
+              try:
+                  data = json.loads(auth_val)
+                  cookies = data if isinstance(data, list) else data.get("cookies", [])
+                  print(f"Session successfully validated: found {len(cookies)} cookies.")
+                  if len(cookies) == 0:
+                      print("::warning::No cookies found in NOTEBOOKLM_AUTH_JSON secret. Session may fail.")
+                  with open("storage_state.json", "w", encoding="utf-8") as f:
+                      f.write(auth_val)
+              except Exception as e:
+                  print(f"::error::NOTEBOOKLM_AUTH_JSON is not valid JSON: {e}")
+                  sys.exit(1)
+          else:
+              print("::error::Neither NOTEBOOKLM_MASTER_TOKEN_JSON nor NOTEBOOKLM_AUTH_JSON secret was found!")
+              print("To fix permanently so auth NEVER expires: Run \"python scripts/setup_master_token.py\" locally and add NOTEBOOKLM_MASTER_TOKEN_JSON to GitHub Secrets.")
               sys.exit(1)
           '
+          if [ -f master_token.json ]; then
+            echo "Pre-minting fresh session cookies from durable master token..."
+            notebooklm --storage storage_state.json auth refresh || true
+          fi
 
       - name: Restore previous pipeline cache (Resume on failure)
         if: ${{ !inputs.force_fresh }}

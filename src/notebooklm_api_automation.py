@@ -45,9 +45,20 @@ def main():
         except Exception:
             pass
 
-    # 1. Verify Authentication
+    # 1. Verify Authentication & Auto-heal/Refresh
     print("[1/5] Checking NotebookLM RPC authentication...")
-    run_cmd(["notebooklm", "--storage", storage_path, "auth", "check"])
+    auth_res = run_cmd(["notebooklm", "--storage", storage_path, "auth", "check", "--test"], check=False)
+    if auth_res.returncode != 0:
+        print("\n[AUTH NOTICE] Token fetch check failed. Attempting to refresh / re-mint session...")
+        refresh_res = run_cmd(["notebooklm", "--storage", storage_path, "auth", "refresh"], check=False)
+        # Verify again after refresh attempt
+        auth_retry = run_cmd(["notebooklm", "--storage", storage_path, "auth", "check", "--test"], check=False)
+        if auth_retry.returncode != 0:
+            print("\n[AUTH ERROR] Could not authenticate with Google NotebookLM.", file=sys.stderr)
+            print("Session cookies have expired and no valid Master Token was found.", file=sys.stderr)
+            print("To make authentication permanent so it NEVER expires:", file=sys.stderr)
+            print("  Run 'python scripts/setup_master_token.py' locally, and save the result as NOTEBOOKLM_MASTER_TOKEN_JSON in GitHub Secrets.\n", file=sys.stderr)
+            raise RuntimeError("Authentication expired or invalid. Please configure NOTEBOOKLM_MASTER_TOKEN_JSON.")
 
     # 2. Create Notebook and set as active context
     print(f"[2/5] Creating notebook: {args.title}...")
