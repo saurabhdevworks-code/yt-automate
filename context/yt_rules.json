@@ -1,0 +1,47 @@
+{
+  "title_rules": {
+    "max_length": 85,
+    "language": "Hindi with English branding",
+    "structure": "[मुख्य विषय / जिज्ञासा हुक] | [Kisan bdlega / फायदा]",
+    "tone": "Engaging, Click-worthy, Credible (No fake clickbait)",
+    "examples": [
+      "सोलर पंप योजना 2026: 80% सब्सिडी के लिए ऐसे करें ऑनलाइन आवेदन | Kisan bdlega",
+      "ड्रिप सिंचाई से कम पानी में बंपर पैदावार: 1 एकड़ से ₹3 लाख मुनाफा | Kisan bdlega",
+      "पॉलीहाउस खेती का पूरा सच: कम जमीन में ₹5 लाख महीना कमाई कैसे करें? | Kisan bdlega"
+    ]
+  },
+  "description_rules": {
+    "intro_hook": "स्वागत है 'Kisan bdlega' पर! इस वीडियो में हम बात करेंगे: {topic} के बारे में।",
+    "key_sections": [
+      "📌 वीडियो के मुख्य बिंदु (Key Highlights)",
+      "💡 आधुनिक तकनीक और सही तरीका (Step-by-Step Practical Guide)",
+      "💰 कुल लागत, कमाई और सरकारी सब्सिडी (Subsidy & Profit Calculation)",
+      "🔔 चैनल को Subscribe करें: किसान बदलेगा तो देश बदलेगा! 🌾"
+    ],
+    "disclaimer": "डिस्क्लेमर: यह वीडियो केवल शैक्षणिक और सूचनात्मक उद्देश्य के लिए है। किसी भी योजना में आवेदन करने से पहले आधिकारिक वेबसाइट पर नियम जरूर चेक करें।",
+    "default_hashtags": [
+      "#KisanBdlega",
+      "#KhetiBadi",
+      "#SmartFarming",
+      "#IndianAgriculture",
+      "#KisanYojana"
+    ]
+  },
+  "tags_rules": {
+    "max_tags": 25,
+    "language": "Mix of Hindi & English keywords",
+    "always_include": [
+      "Kisan bdlega",
+      "Kisan Badlega",
+      "Kheti Badi",
+      "Aadhunik Kheti",
+      "Smart Farming India",
+      "Krishi Gyan",
+      "Indian Agriculture",
+      "Kisan Yojana",
+      "Crop Protection",
+      "Organic Farming India"
+    ],
+    "guidance": "Add specific high-search-volume keywords for the crop, machine, or scheme discussed."
+  }
+}

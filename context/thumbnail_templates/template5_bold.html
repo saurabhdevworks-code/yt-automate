@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800;900&family=Poppins:wght@700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: 'Baloo 2', 'Poppins', sans-serif;
+    position: relative; background: #000;
+  }
+  .bg-image {
+    position: absolute; top: 0; right: 0; width: 100%; height: 100%;
+    background-image: url('{bg_url}');
+    background-size: cover;
+    background-position: {bg_pos};
+  }
+  .dark-vignette {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 50%, rgba(5,12,10,0.92) 0%, rgba(5,12,10,0.75) 60%, rgba(5,12,10,0.2) 100%);
+  }
+  .content {
+    position: relative; z-index: 10; height: 100%;
+    padding: 50px 60px; display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; }
+  .channel-pill {
+    background: rgba(15, 23, 42, 0.9); border: 2px solid #334155; color: #f8fafc;
+    padding: 8px 22px; border-radius: 12px; font-size: 20px; font-weight: 800;
+  }
+  .alert-pill {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+    border: 2px solid #fca5a5; color: #ffffff; padding: 8px 22px;
+    border-radius: 12px; font-size: 22px; font-weight: 800;
+  }
+  .headline-group { max-width: 800px; margin-top: -10px; }
+  .title-line-1 {
+    font-size: 92px; font-weight: 900; color: #ffffff; line-height: 1.05;
+    text-shadow: 0 4px 16px rgba(0,0,0,0.95); margin-bottom: 10px;
+  }
+  .highlight-banner {
+    display: inline-block;
+    background: linear-gradient(135deg, #fde047 0%, #eab308 100%);
+    color: #0f172a; font-size: 86px; font-weight: 900; line-height: 1.05;
+    padding: 10px 32px; border-radius: 20px; border: 4px solid #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.85); margin-bottom: 18px;
+  }
+  .benefit-pill {
+    display: inline-flex; align-items: center; gap: 12px;
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+    border: 2px solid #4ade80; color: #f0fdf4; font-size: 40px;
+    font-weight: 800; padding: 10px 28px; border-radius: 16px;
+  }
+  .bottom-badge {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 16px;
+    background: rgba(15, 23, 42, 0.9); border: 2px solid #eab308;
+    padding: 10px 24px; border-radius: 14px;
+  }
+  .badge-stat { font-size: 48px; font-weight: 900; color: #fde047; }
+  .badge-text { font-size: 24px; font-weight: 800; color: #ffffff; }
+</style>
+</head>
+<body>
+  <div class="bg-image"></div>
+  <div class="dark-vignette"></div>
+  <div class="content">
+    <div class="top-bar">
+      <div class="channel-pill">{channel}</div>
+      <div class="alert-pill">{top_badge}</div>
+    </div>
+    <div class="headline-group">
+      <div class="title-line-1">{line1}</div>
+      <div class="highlight-banner">{highlight}</div>
+      <div>
+        <div class="benefit-pill">{benefit}</div>
+      </div>
+    </div>
+    <div class="bottom-badge">
+      <div class="badge-stat">{stat_num}</div>
+      <div class="badge-text">{stat_title} • {stat_tag}</div>
+    </div>
+  </div>
+</body>
+</html>

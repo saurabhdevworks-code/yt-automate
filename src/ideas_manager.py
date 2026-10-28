@@ -13,6 +13,23 @@ from pathlib import Path
 DEFAULT_COLUMNS = ["id", "topic", "status", "used_at", "notes"]
 
 
+def resolve_ideas_csv(csv_path: Path = None) -> Path:
+    """Resolve topics CSV, prioritizing context/topics.csv with fallback to config/ideas.csv."""
+    if csv_path:
+        p = Path(csv_path)
+        if p.is_file():
+            return p
+    for candidate in [
+        Path("context/topics.csv"),
+        Path("Context/topics.csv"),
+        Path("context/Topics.csv"),
+        Path("config/ideas.csv")
+    ]:
+        if candidate.is_file():
+            return candidate
+    return Path(csv_path) if csv_path else Path("context/topics.csv")
+
+
 def is_status_unused(status: str) -> bool:
     """Check if the status string indicates an unused idea."""
     if not status:
@@ -66,10 +83,11 @@ def save_ideas(csv_path: Path, rows: list[dict], fieldnames: list[str]) -> bool:
         return False
 
 
-def get_next_unused_idea(csv_path: Path) -> dict | None:
+def get_next_unused_idea(csv_path: Path = None) -> dict | None:
     """Find and return the next unused topic from the CSV file.
     Returns None if CSV does not exist or all ideas are already marked as used.
     """
+    csv_path = resolve_ideas_csv(csv_path)
     rows, _ = load_ideas(csv_path)
     if not rows:
         return None
@@ -89,6 +107,7 @@ def get_next_unused_idea(csv_path: Path) -> dict | None:
 
 def mark_idea_used(csv_path: Path, topic_or_id: str, timestamp: str = None) -> bool:
     """Mark an idea as 'used' in the CSV by matching topic string or ID."""
+    csv_path = resolve_ideas_csv(csv_path)
     if not csv_path.exists():
         return False
 
@@ -119,12 +138,13 @@ def mark_idea_used(csv_path: Path, topic_or_id: str, timestamp: str = None) -> b
     return False
 
 
-def pick_and_mark_next_idea(csv_path: Path) -> str | None:
+def pick_and_mark_next_idea(csv_path: Path = None) -> str | None:
     """Convenience function:
     1. Finds the next unused idea.
     2. Marks it as 'used' with current timestamp.
     3. Returns the topic string, or None if no pending idea.
     """
+    csv_path = resolve_ideas_csv(csv_path)
     if not csv_path.exists():
         return None
 

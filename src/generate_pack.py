@@ -15,12 +15,13 @@ from src.ideas_manager import pick_and_mark_next_idea, mark_idea_used
 ROOT = Path(__file__).resolve().parents[1]
 
 def load_context():
-    ctx_path = ROOT / "config" / "channel_context.json"
-    if ctx_path.exists():
-        try:
-            return json.loads(ctx_path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+    for rel in ["context/channel_context.json", "Context/channel_context.json", "config/channel_context.json"]:
+        p = ROOT / rel
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                pass
     return {
         "channel_name": "Kisan bdlega",
         "niche": "Farming and Agriculture",
@@ -30,6 +31,16 @@ def load_context():
         "target_audience": "भारतीय किसान, ग्रामीण युवा और आधुनिक कृषि उद्यमी",
         "thumbnail_fonts": ["Mukta", "Hind", "Poppins", "Baloo"]
     }
+
+def load_yt_rules():
+    for rel in ["context/yt_rules.json", "Context/yt_rules.json", "config/yt_rules.json"]:
+        p = ROOT / rel
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+    return {}
 
 def generate_metadata(topic, audience, channel_info=None):
     if channel_info is None:
@@ -113,12 +124,18 @@ def generate_metadata(topic, audience, channel_info=None):
     if not key:
         return fallback
 
+    yt_rules = load_yt_rules()
+    rules_text = ""
+    if yt_rules:
+        rules_text = f"\nCustom YouTube Guidelines (from context/yt_rules.json):\n{json.dumps(yt_rules, ensure_ascii=False, indent=2)}\nFollow these instructions strictly.\n"
+
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     prompt = (
         f"You are the head YouTube strategist for the popular Indian farming channel '{ch_name}'.\n"
         f"Niche: Farming and Agriculture in India.\n"
         f"Topic: {topic}\n"
         f"Target Audience: {audience}\n"
+        f"{rules_text}\n"
         "Requirements:\n"
         "1. title: Eye-catching, click-worthy Hindi title for Indian farmers (under 90 chars). Include channel branding or farming hook.\n"
         "2. description: Detailed, informative Hindi description with intro, bullet points, call-to-action for 'Kisan bdlega', and hashtags.\n"
@@ -172,7 +189,7 @@ def main():
     settings = json.loads((ROOT / args.settings).read_text(encoding="utf-8"))
 
     ch_name = channel_info.get("channel_name", "Kisan bdlega")
-    ideas_csv = ROOT / args.ideas_file
+    ideas_csv = resolve_ideas_csv(ROOT / args.ideas_file if args.ideas_file != "config/ideas.csv" else None)
 
     if args.custom_topic.strip():
         topic = args.custom_topic.strip()

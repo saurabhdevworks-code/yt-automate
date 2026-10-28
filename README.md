@@ -285,28 +285,43 @@ yt-automate/
 │   ├── full-pipeline-self-hosted.yml # Windows self-hosted runner workflow
 │   ├── research.yml                  # Standalone research pack generator
 │   └── upload.yml                    # Standalone video uploader
+├── context/                          # ⭐ Unified Creative Hub & Channel Guidelines
+│   ├── yt_rules.json                 # Custom rules for Titles, Descriptions, Tags, Hashtags
+│   ├── topics.csv                    # CSV Topic Queue (Status: pending / used)
+│   ├── channel_context.json          # Channel persona & niche definition
+│   ├── thumbnail_templates/          # 5 Customizable HTML/CSS Thumbnail Templates
+│   │   ├── template1_scheme.html     # सरकारी योजना & सब्सिडी (Solar Pump, PM Kisan)
+│   │   ├── template2_profit.html     # कमाई & बंपर मुनाफा (Polyhouse, Vermicompost)
+│   │   ├── template3_tech.html       # आधुनिक तकनीक & स्मार्ट खेती (Drone, Drip)
+│   │   ├── template4_split.html      # पुराना तरीका vs नया तरीका (Comparison)
+│   │   └── template5_bold.html       # Big Bold High-Impact Minimalist
+│   └── images/
+│       ├── watermark/                # Place watermark.png/jpg here to replace NotebookLM logo
+│       └── thumbnails/               # Optional custom photography or background assets
 ├── assets/
-│   ├── fonts/                        # Devanagari TTF fonts for thumbnails
-│   └── images/                       # Folder for custom watermark image (watermark.png)
+│   ├── fonts/                        # Devanagari TTF fonts for thumbnails (Baloo2, Mukta, Poppins)
+│   └── images/                       # Fallback images directory
 ├── config/
-│   ├── channel_context.json          # Channel persona & context prompt
-│   ├── ideas.csv                     # Predefined video topics queue (auto marks 'used')
+│   ├── channel_context.json          # Channel persona (backward compatible)
+│   ├── ideas.csv                     # Topic ideas (backward compatible)
 │   └── settings.json                 # Channel configuration & post-processing settings
 ├── scripts/
 │   ├── get_youtube_refresh_token.py  # Local tool to generate YouTube OAuth token
 │   ├── notebooklm_login.py           # Cookie capture tool
 │   └── setup_master_token.py         # Permanent Master Token generator
 ├── src/
-│   ├── generate_pack.py              # AI Research & prompt generator
-│   ├── ideas_manager.py              # CSV ideas queue manager (deduplication)
+│   ├── generate_pack.py              # AI Research & prompt generator (reads context/yt_rules.json)
+│   ├── ideas_manager.py              # CSV ideas queue manager (prioritizes context/topics.csv)
 │   ├── notebooklm_api_automation.py  # Cloud NotebookLM client
 │   ├── notebooklm_automation.py      # Playwright browser automation
-│   ├── thumbnail.py                  # Hindi thumbnail generator
+│   ├── thumbnail.py                  # Pro AI & Chrome headless thumbnail renderer
 │   ├── video_processor.py            # FFmpeg: delogo watermark removal, 3s trim, intro concat
 │   └── youtube_upload.py             # YouTube Data API uploader
 ├── tests/
+│   ├── test_context_hub.py           # Unit tests for context/ hub, yt_rules, & templates
 │   ├── test_core.py                  # Metadata & cookie tests
 │   ├── test_ideas_manager.py         # Unit tests for ideas CSV handling & deduplication
+│   ├── test_thumbnail.py             # Unit tests for AI & HTML thumbnail generator
 │   └── test_video_processor.py       # Unit tests for trim, delogo & watermark detection
 ├── run_local_pipeline.ps1            # Local execution script (Windows PowerShell)
 ├── requirements.txt                  # Python dependencies

@@ -182,6 +182,22 @@ def find_watermark_image(custom_path: str = "", base_dir: Path = None) -> Path |
         if p.exists() and p.is_file() and p.stat().st_size > 0:
             return p.resolve()
 
+    # 2. Check context/images/watermark/ folder
+    for ctx_dir in [
+        base_dir / "context" / "images" / "watermark",
+        base_dir / "Context" / "images" / "watermark",
+        base_dir / "context" / "images",
+        base_dir / "Context" / "images"
+    ]:
+        if ctx_dir.exists():
+            for ext in [".png", ".jpg", ".jpeg", ".webp", ".PNG", ".JPG", ".JPEG", ".WEBP"]:
+                candidate = ctx_dir / f"watermark{ext}"
+                if candidate.exists() and candidate.is_file() and candidate.stat().st_size > 0:
+                    return candidate.resolve()
+            for candidate in ctx_dir.iterdir():
+                if candidate.is_file() and candidate.stem.lower() == "watermark" and candidate.stat().st_size > 0:
+                    return candidate.resolve()
+
     # 2. Check assets/images/ folder for watermark.*
     images_dir = base_dir / "assets" / "images"
     if images_dir.exists():

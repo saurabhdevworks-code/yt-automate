@@ -147,6 +147,82 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
+def resolve_template_html(template_name: str = None, fmt_type: str = "scheme") -> str:
+    """Resolve and load HTML template, prioritizing context/thumbnail_templates/."""
+    templates_dirs = [
+        ROOT / "context" / "thumbnail_templates",
+        ROOT / "Context" / "thumbnail_templates",
+        ROOT / "context" / "thumbnailTemplate",
+        ROOT / "Context" / "thumbnailTemplate"
+    ]
+
+    # 1. If explicit template requested (e.g. template1, template2, template4_split)
+    if template_name:
+        req = str(template_name).strip().lower()
+        for tdir in templates_dirs:
+            if tdir.is_dir():
+                for p in tdir.glob("*.html"):
+                    if req == p.stem.lower() or req in p.stem.lower():
+                        try:
+                            print(f"[THUMBNAIL] Using custom template from {p.name}")
+                            return p.read_text(encoding="utf-8")
+                        except Exception:
+                            pass
+
+    # 2. Match based on format type
+    target_map = {
+        "scheme": ["template1_scheme.html", "template1.html", "scheme.html"],
+        "profit": ["template2_profit.html", "template2.html", "profit.html"],
+        "tech": ["template3_tech.html", "template3.html", "tech.html"],
+        "split": ["template4_split.html", "template4.html", "split.html"],
+        "bold": ["template5_bold.html", "template5.html", "bold.html"],
+    }
+    candidates = target_map.get(fmt_type, ["template1_scheme.html"])
+    for tdir in templates_dirs:
+        if tdir.is_dir():
+            for c in candidates:
+                p = tdir / c
+                if p.is_file():
+                    try:
+                        return p.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+            # Fallback to any html matching format keyword
+            for p in tdir.glob("*.html"):
+                if fmt_type in p.stem.lower():
+                    try:
+                        return p.read_text(encoding="utf-8")
+                    except Exception:
+                        pass
+
+    # 3. Default built-in template
+    return HTML_TEMPLATE
+
+
+def find_custom_background() -> Path | None:
+    """Look for any user-provided background in context/images/thumbnails/."""
+    for candidate_dir in [
+        ROOT / "context" / "images" / "thumbnails",
+        ROOT / "Context" / "images" / "thumbnails",
+        ROOT / "context" / "images" / "Thumbnails",
+        ROOT / "Context" / "images" / "Thumbnails"
+    ]:
+        if candidate_dir.is_dir():
+            for p in candidate_dir.glob("*"):
+                if p.is_file() and p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"] and not p.name.startswith("README"):
+                    return p
+    return None
+
+
+def populate_template(template_str: str, data: dict) -> str:
+    """Safely populate placeholders {key} or {{key}} without interfering with CSS { ... } blocks."""
+    res = template_str
+    for k, v in data.items():
+        res = res.replace(f"{{{{{k}}}}}", str(v))
+        res = res.replace(f"{{{k}}}", str(v))
+    return res
+
+
 def find_chrome_executable() -> str:
     """Find Google Chrome, Chromium, or Microsoft Edge on host or CI."""
     # 1. System PATH
@@ -282,7 +358,8 @@ def make_thumbnail(
     video_path: str = None,
     custom_bg: str = None,
     text: str = None,
-    channel_name: str = "Kisan bdlega"
+    channel_name: str = "Kisan bdlega",
+    template: str = None
 ) -> str:
     """Main entrypoint: generates a pro high-CTR YouTube thumbnail."""
     out_path = Path(output).resolve()
@@ -364,10 +441,16 @@ def make_thumbnail(
     bg_img_path = temp_dir / "bg_visual.jpg"
     bg_ready = False
 
-    # A. Custom image passed
+    # A. Custom image passed or found in context/images/thumbnails
     if custom_bg and Path(custom_bg).is_file():
         shutil.copy(custom_bg, bg_img_path)
         bg_ready = True
+    elif not custom_bg:
+        auto_bg = find_custom_background()
+        if auto_bg:
+            print(f"[THUMBNAIL] Using custom background from {auto_bg}")
+            shutil.copy(auto_bg, bg_img_path)
+            bg_ready = True
 
     # B. Imagen 3 via GEMINI_API_KEY
     gemini_key = os.getenv("GEMINI_API_KEY", "")
@@ -408,8 +491,9 @@ def make_thumbnail(
         "stat_tag": meta.get("thumbnail_stat_tag") or default_tag,
     }
 
+    html_tpl = resolve_template_html(template_name=template, fmt_type=fmt_type)
     html_file = temp_dir / "thumbnail.html"
-    html_file.write_text(HTML_TEMPLATE.format(**fmt_data), encoding="utf-8")
+    html_file.write_text(populate_template(html_tpl, fmt_data), encoding="utf-8")
 
     rendered = render_with_chrome(html_file, out_path)
     if rendered:
@@ -456,6 +540,7 @@ def main():
     ap.add_argument("--font", default="", help="Specific font path (kept for compatibility)")
     ap.add_argument("--font-style", default="baloo", help="Font style (kept for compatibility)")
     ap.add_argument("--channel", default="Kisan bdlega", help="Channel name")
+    ap.add_argument("--template", help="Specific template name (e.g. template1, template2, template4_split)")
     args = ap.parse_args()
 
     out = make_thumbnail(
@@ -464,7 +549,8 @@ def main():
         video_path=args.video,
         custom_bg=args.background,
         text=args.text,
-        channel_name=args.channel
+        channel_name=args.channel,
+        template=args.template
     )
     print(f"Generated High-CTR YouTube thumbnail: {out}")
 
