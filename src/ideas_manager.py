@@ -10,24 +10,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_COLUMNS = ["id", "topic", "status", "used_at", "notes"]
 
 
 def resolve_ideas_csv(csv_path: Path = None) -> Path:
-    """Resolve topics CSV, prioritizing context/topics.csv with fallback to config/ideas.csv."""
+    """Resolve topics CSV, prioritizing context/topics.csv."""
     if csv_path:
         p = Path(csv_path)
-        if p.is_file():
-            return p
+        if not p.is_absolute():
+            p = ROOT / p
+        return p
     for candidate in [
-        Path("context/topics.csv"),
-        Path("Context/topics.csv"),
-        Path("context/Topics.csv"),
-        Path("config/ideas.csv")
+        ROOT / "context" / "topics.csv",
+        ROOT / "Context" / "topics.csv",
+        ROOT / "context" / "Topics.csv",
+        ROOT / "config" / "ideas.csv",
     ]:
         if candidate.is_file():
-            return candidate
-    return Path(csv_path) if csv_path else Path("context/topics.csv")
+            return candidate.resolve()
+    return (ROOT / "context" / "topics.csv").resolve()
 
 
 def is_status_unused(status: str) -> bool:
