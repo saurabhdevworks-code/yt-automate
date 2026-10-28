@@ -44,3 +44,12 @@ def test_find_watermark_in_context_images(tmp_path):
     found = find_watermark_image(base_dir=tmp_path)
     assert found is not None
     assert found.name == "watermark.png"
+
+ROOT = Path(__file__).resolve().parents[1]
+
+def test_context_fonts_presence():
+    fonts_dir = ROOT / "context" / "fonts"
+    assert fonts_dir.is_dir()
+    assert (fonts_dir / "Baloo2-Bold.ttf").is_file()
+    assert (fonts_dir / "Mukta-Bold.ttf").is_file()
+    assert (fonts_dir / "Poppins-Bold.ttf").is_file()

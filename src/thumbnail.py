@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 W, H = 1280, 720
 ROOT = Path(__file__).resolve().parents[1]
-FONTS_DIR = ROOT / "assets" / "fonts"
+FONTS_DIR = ROOT / "context" / "fonts" if (ROOT / "context" / "fonts").is_dir() else (ROOT / "assets" / "fonts")
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="hi">
@@ -522,6 +522,14 @@ def _render_pillow_fallback(bg_path: Path, out_path: Path, data: dict):
 
     draw = ImageDraw.Draw(img)
     font_large = ImageFont.load_default()
+    for f_name in ["Baloo2-Bold.ttf", "Mukta-Bold.ttf", "NotoSansDevanagari-Bold.ttf"]:
+        fp = FONTS_DIR / f_name
+        if fp.is_file():
+            try:
+                font_large = ImageFont.truetype(str(fp), 56)
+                break
+            except Exception:
+                pass
     # Draw simple fallback text
     draw.text((60, 60), data["top_badge"], fill=(239, 68, 68), font=font_large)
     draw.text((60, 140), data["line1"], fill=(255, 255, 255), font=font_large)

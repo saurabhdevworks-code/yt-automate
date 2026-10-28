@@ -19,8 +19,14 @@ context/
 │   ├── template3_tech.html     <- आधुनिक तकनीक & स्मार्ट खेती (Drone, Drip)
 │   ├── template4_split.html    <- पुराना तरीका vs नया तरीका (Comparison)
 │   └── template5_bold.html     <- Big Bold High-Impact Minimalist
+├── fonts/                      <- Devanagari Hindi TTF Fonts
+│   ├── Baloo2-Bold.ttf         <- Primary font for headlines & yellow ribbons
+│   ├── Mukta-Bold.ttf          <- Clean font for benefits & subheadings
+│   ├── Poppins-Bold.ttf        <- Sharp font for stats & numbers (80%, ₹5L)
+│   ├── Hind-Bold.ttf           <- News/Alert badge font
+│   └── NotoSansDevanagari-Bold.ttf <- Google standard fallback
 └── images/
-    ├── watermark/              <- Apna watermark.png yahan rakhein
+    ├── watermark/              <- Apna watermark.png yahan rakhein (NotebookLM logo replace hoga)
     └── thumbnails/             <- Custom backgrounds ya reference assets
 ```
 
@@ -39,6 +45,14 @@ context/
 - Aap kisi bhi template ka HTML/CSS open karke design, colors, font sizes change kar sakte hain.
 - Pipeline in templates ko Headless Chrome se 1280x720 pixel-perfect JPEG me convert karti hai.
 
-### 4. `images/watermark/`
+### 4. `fonts/` (Hindi Devanagari Typography)
+- Saare Devanagari TrueType fonts yahan rehte hain.
+- `Baloo 2` headlines aur stickers ke liye sabse best hai (mobile screen par clear dikhta hai).
+- Aap koi bhi naya `.ttf` font is folder me daal sakte hain.
+
+### 5. `images/watermark/`
 - Bas apna logo `watermark.png` naam se yahan paste kar dein.
 - Video Processor automatically use video ke corner me fit kar dega.
+
+### 6. `images/thumbnails/`
+- Agar kisi specific video ke liye aapko AI ke bajaye apni custom background photo lagani ho, toh yahan save karein.
