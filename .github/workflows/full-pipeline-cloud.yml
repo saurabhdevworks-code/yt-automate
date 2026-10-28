@@ -299,15 +299,18 @@ jobs:
             --custom-description "$CUSTOM_DESC" \
             --custom-tags "$CUSTOM_TAGS"
 
-      - name: Create thumbnail when Devanagari font is configured
+      - name: Generate Pro High-CTR YouTube Thumbnail
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           if [ -f output/thumbnail.jpg ]; then
             echo "[RESUME] Thumbnail already present (custom or generated). Skipping auto-creation."
-          elif [ -f assets/fonts/NotoSansDevanagari-Bold.ttf ] && [ -f output/metadata.json ]; then
-            thumb_text=$(python -c "import json; print(json.load(open('output/metadata.json')).get('thumbnail_text', ''))")
-            if [ -n "$thumb_text" ]; then
-              python -m src.thumbnail --text "$thumb_text" --output output/thumbnail.jpg --font assets/fonts/NotoSansDevanagari-Bold.ttf || true
-            fi
+          else
+            echo "[THUMBNAIL] Generating world-class High-CTR thumbnail with AI..."
+            python -m src.thumbnail \
+              --metadata output/metadata.json \
+              --video output/notebooklm/notebooklm_video.mp4 \
+              --output output/thumbnail.jpg || true
           fi
 
       - name: Upload to YouTube

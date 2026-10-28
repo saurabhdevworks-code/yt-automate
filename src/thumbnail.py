@@ -1,16 +1,24 @@
-"""High-CTR YouTube Thumbnail Generator.
-Creates modern, click-worthy 1280x720 thumbnails for Indian Farming & Agriculture channels:
-- Multi-stop rich cinematic background gradient with radial spotlights.
-- High-contrast sticker ribbons (Yellow on dark pill, Emerald green ribbons).
-- 3D drop-shadow typography in bold Hindi Devanagari (Baloo2, Mukta, Poppins).
-- Right-side glowing 3D Stat/Benefit Callout Badge.
-- Optional: Video frame extraction with left-side dark gradient fade.
+"""High-CTR YouTube Thumbnail Generator for Kisan Badlega.
+Creates world-class 1280x720 thumbnails for Indian Agriculture channels:
+1. Dynamic background generation using Google Imagen 3 API (via GEMINI_API_KEY),
+   with graceful fallbacks to Pollinations AI, NotebookLM video frame extraction, or cinematic gradients.
+2. 3 High-CTR YouTube creator formats:
+   - Format 1: 'scheme' (Government Schemes, Subsidies, PM Kisan, Kusum)
+   - Format 2: 'profit' (Cash Crops, Polyhouse, Vermicompost, High Income)
+   - Format 3: 'tech' (Smart Farming, Drones, Drip Irrigation, Modern Methods)
+3. Pixel-perfect Canva-grade rendering using Headless Chrome / Chromium (HTML5 + CSS3 + Google Fonts),
+   with pure PIL drawing fallback if Chrome is not installed.
 """
 import argparse
+import base64
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
@@ -18,80 +26,201 @@ W, H = 1280, 720
 ROOT = Path(__file__).resolve().parents[1]
 FONTS_DIR = ROOT / "assets" / "fonts"
 
-FONT_CANDIDATES = {
-    "baloo": FONTS_DIR / "Baloo2-Bold.ttf",
-    "mukta": FONTS_DIR / "Mukta-Bold.ttf",
-    "poppins": FONTS_DIR / "Poppins-Bold.ttf",
-    "hind": FONTS_DIR / "Hind-Bold.ttf",
-    "noto": FONTS_DIR / "NotoSansDevanagari-Bold.ttf"
-}
+HTML_TEMPLATE = """<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800;900&family=Poppins:wght@700;800;900&display=swap');
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    width: 1280px; height: 720px; overflow: hidden;
+    font-family: 'Baloo 2', 'Poppins', sans-serif;
+    position: relative; background: #000;
+  }}
+  .bg-image {{
+    position: absolute; top: 0; right: 0; width: 100%; height: 100%;
+    background-image: url('{bg_url}');
+    background-size: cover;
+    background-position: {bg_pos};
+  }}
+  .vignette-overlay {{
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, 
+      rgba(5, 12, 10, 0.96) 0%, 
+      rgba(5, 12, 10, 0.92) 44%, 
+      rgba(5, 12, 10, 0.65) 62%, 
+      rgba(5, 12, 10, 0.15) 85%,
+      transparent 100%);
+  }}
+  .bottom-vignette {{
+    position: absolute; bottom: 0; left: 0; right: 0; height: 140px;
+    background: linear-gradient(0deg, rgba(5, 12, 10, 0.85) 0%, transparent 100%);
+  }}
+  .content {{
+    position: relative; z-index: 10; height: 100%;
+    padding: 44px 52px; display: flex; flex-direction: column; justify-content: space-between;
+  }}
+  .top-bar {{ display: flex; align-items: center; gap: 16px; }}
+  .channel-pill {{
+    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px);
+    border: 2px solid #334155; color: #f8fafc; padding: 8px 22px;
+    border-radius: 12px; font-size: 20px; font-family: 'Poppins', sans-serif;
+    font-weight: 800; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+  }}
+  .alert-pill {{
+    background: {alert_bg};
+    border: 2px solid {alert_border}; color: #ffffff; padding: 8px 22px;
+    border-radius: 12px; font-size: 22px; font-weight: 800;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.6);
+  }}
+  .headline-group {{ max-width: 720px; margin-top: -15px; }}
+  .title-line-1 {{
+    font-size: 82px; font-weight: 900; color: #ffffff; line-height: 1.08;
+    text-shadow: 0 4px 14px rgba(0,0,0,0.95), 0 8px 28px rgba(0,0,0,0.9);
+    margin-bottom: 8px;
+  }}
+  .highlight-banner {{
+    display: inline-block;
+    background: linear-gradient(135deg, #fde047 0%, #eab308 100%);
+    color: #0f172a; font-size: 80px; font-weight: 900; line-height: 1.1;
+    padding: 8px 30px; border-radius: 20px; border: 4px solid #ffffff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 45px rgba(234, 179, 8, 0.45);
+    transform: rotate(-1.5deg); margin: 10px 0 18px -6px;
+  }}
+  .benefit-pill {{
+    display: inline-flex; align-items: center; gap: 12px;
+    background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+    border: 2px solid #4ade80; color: #f0fdf4; font-size: 38px;
+    font-weight: 800; padding: 10px 26px; border-radius: 14px;
+    box-shadow: 0 6px 20px rgba(22, 101, 52, 0.6);
+  }}
+  .bottom-badge {{
+    display: inline-flex; align-items: center; gap: 18px;
+    background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px);
+    border: 2px solid #eab308; padding: 12px 26px; border-radius: 16px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.7); max-width: 540px;
+  }}
+  .badge-stat {{
+    font-size: 52px; font-weight: 900; color: #fde047; line-height: 1;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  }}
+  .badge-text {{
+    font-size: 26px; font-weight: 800; color: #ffffff; line-height: 1.2;
+  }}
+  .badge-tag {{
+    font-size: 17px; font-weight: 700; color: #4ade80; display: block; margin-top: 2px;
+  }}
+  .outer-frame {{
+    position: absolute; inset: 0; border: 4px solid rgba(255, 255, 255, 0.15);
+    pointer-events: none; z-index: 50;
+  }}
+</style>
+</head>
+<body>
+  <div class="bg-image"></div>
+  <div class="vignette-overlay"></div>
+  <div class="bottom-vignette"></div>
+  <div class="outer-frame"></div>
+  <div class="content">
+    <div class="top-bar">
+      <div class="channel-pill">{channel}</div>
+      <div class="alert-pill">{top_badge}</div>
+    </div>
+    <div class="headline-group">
+      <div class="title-line-1">{line1}</div>
+      <div class="highlight-banner">{highlight}</div>
+      <div>
+        <div class="benefit-pill">{benefit}</div>
+      </div>
+    </div>
+    <div class="bottom-badge">
+      <div class="badge-stat">{stat_num}</div>
+      <div class="badge-text">
+        {stat_title}
+        <span class="badge-tag">{stat_tag}</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
 
 
-def resolve_font(preferred_style="baloo", size=60):
-    """Resolve font path and load TrueType font with fallback."""
-    key = str(preferred_style).lower() if preferred_style else "baloo"
-    order = [key, "baloo", "mukta", "poppins", "hind", "noto"]
-
-    for k in order:
-        if k in FONT_CANDIDATES:
-            path = FONT_CANDIDATES[k]
-            if path.exists() and path.is_file():
-                try:
-                    return ImageFont.truetype(str(path), size)
-                except Exception:
-                    pass
-
-    # System fallbacks
-    for sys_font in [
-        "/usr/share/fonts/truetype/deva/Mukta-Bold.ttf",
-        "/usr/share/fonts/truetype/deva/Hind-Bold.ttf",
-        "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"
+def find_chrome_executable() -> str:
+    """Find Google Chrome, Chromium, or Microsoft Edge on host or CI."""
+    # 1. System PATH
+    for name in ["google-chrome", "chrome", "chromium", "chromium-browser", "msedge"]:
+        path = shutil.which(name)
+        if path:
+            return path
+    # 2. Windows known locations
+    for win_path in [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
     ]:
-        if Path(sys_font).is_file():
-            try:
-                return ImageFont.truetype(sys_font, size)
-            except Exception:
-                pass
+        if os.path.isfile(win_path):
+            return win_path
+    # 3. Linux known locations
+    for linux_path in [
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser"
+    ]:
+        if os.path.isfile(linux_path):
+            return linux_path
+    return None
 
-    return ImageFont.load_default()
+
+def generate_imagen3_background(prompt: str, api_key: str, out_path: Path) -> bool:
+    """Generate 16:9 photorealistic visual using Google Imagen 3 API via GEMINI_API_KEY."""
+    if not api_key:
+        return False
+    try:
+        import requests
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}"
+        payload = {
+            "instances": [{"prompt": prompt}],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": "16:9",
+                "outputMimeType": "image/jpeg"
+            }
+        }
+        res = requests.post(url, json=payload, timeout=60)
+        if res.status_code == 200:
+            data = res.json()
+            predictions = data.get("predictions", [])
+            if predictions and "bytesBase64Encoded" in predictions[0]:
+                b64 = predictions[0]["bytesBase64Encoded"]
+                out_path.write_bytes(base64.b64decode(b64))
+                print(f"[IMAGEN 3] Successfully generated photorealistic AI background: {out_path}")
+                return True
+        print(f"[IMAGEN 3] Status {res.status_code}: {res.text[:120]}")
+    except Exception as exc:
+        print(f"[IMAGEN 3] Warning: Imagen 3 request failed: {exc}")
+    return False
 
 
-def create_gradient_backdrop():
-    """Create a high-end cinematic dark emerald-to-navy gradient with radial lighting."""
-    base = Image.new("RGB", (W, H), (10, 25, 18))
-    draw = ImageDraw.Draw(base)
-
-    # Diagonal gradient
-    for y in range(H):
-        for x in range(0, W, 4):
-            t = (x / W) * 0.6 + (y / H) * 0.4
-            r = int(6 + 18 * t)
-            g = int(28 + 48 * (1 - t * 0.5))
-            b = int(22 + 45 * t)
-            draw.rectangle([x, y, x + 4, y + 1], fill=(r, g, b))
-
-    # Add radial golden/emerald glow on the right
-    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    cx, cy = 960, 360
-    max_radius = 420
-    for r in range(max_radius, 0, -10):
-        alpha = int(35 * (1 - r / max_radius))
-        glow_draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(34, 197, 94, alpha))
-
-    # Warm golden spotlight accent
-    cx2, cy2 = 1040, 280
-    for r in range(300, 0, -8):
-        alpha = int(45 * (1 - r / 300))
-        glow_draw.ellipse([cx2 - r, cy2 - r, cx2 + r, cy2 + r], fill=(245, 158, 11, alpha))
-
-    base.paste(Image.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, 0)), glow).convert("RGB"), (0, 0), glow)
-    return base
+def generate_pollinations_background(prompt: str, out_path: Path) -> bool:
+    """Fallback 1: Free Pollinations Flux image generator."""
+    try:
+        encoded = urllib.parse.quote(prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=720&model=flux&nologo=true&seed=42"
+        urllib.request.urlretrieve(url, str(out_path))
+        if out_path.exists() and out_path.stat().st_size > 10000:
+            print(f"[POLLINATIONS] Successfully fetched background: {out_path}")
+            return True
+    except Exception as exc:
+        print(f"[POLLINATIONS] Warning: Pollinations fetch failed: {exc}")
+    return False
 
 
 def extract_video_frame(video_path: Path, output_frame: Path, timestamp: str = "00:00:08") -> bool:
-    """Extract a high quality scenic frame from video using ffmpeg."""
-    if not video_path.exists():
+    """Fallback 2: Extract a high quality scenic frame from video using ffmpeg."""
+    if not video_path or not Path(video_path).exists():
         return False
     cmd = [
         "ffmpeg", "-y",
@@ -102,203 +231,240 @@ def extract_video_frame(video_path: Path, output_frame: Path, timestamp: str = "
         str(output_frame)
     ]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
         return res.returncode == 0 and output_frame.exists() and output_frame.stat().st_size > 1000
     except Exception:
         return False
 
 
-def apply_dark_fade_overlay(image: Image.Image) -> Image.Image:
-    """Apply a smooth left-to-right dark gradient so text remains 100% readable over video frames."""
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    # 100% dark on the left (0 to 600px), transitioning to transparent on the right
-    for x in range(W):
-        if x < 450:
-            alpha = 235
-        elif x < 900:
-            t = (x - 450) / 450.0
-            alpha = int(235 * (1.0 - t * 0.75))
-        else:
-            alpha = 55
-        draw.line([(x, 0), (x, H)], fill=(10, 15, 25, alpha))
-
-    base_rgba = image.convert("RGBA")
-    return Image.alpha_composite(base_rgba, overlay).convert("RGB")
+def create_gradient_backdrop(out_path: Path):
+    """Fallback 3: Rich cinematic multi-stop emerald & navy gradient."""
+    base = Image.new("RGB", (W, H), (10, 25, 18))
+    draw = ImageDraw.Draw(base)
+    for y in range(H):
+        for x in range(0, W, 4):
+            t = (x / W) * 0.6 + (y / H) * 0.4
+            r = int(6 + 18 * t)
+            g = int(28 + 48 * (1 - t * 0.5))
+            b = int(22 + 45 * t)
+            draw.rectangle([x, y, x + 4, y + 1], fill=(r, g, b))
+    base.save(str(out_path), quality=95)
 
 
-def draw_pill(draw, box, fill_color, outline_color=None, outline_width=2, radius=14):
-    """Draw a smooth rounded rectangle pill."""
-    draw.rounded_rectangle(box, radius=radius, fill=fill_color, outline=outline_color, width=outline_width)
+def render_with_chrome(html_file: Path, out_path: Path) -> bool:
+    """Render HTML template to 1280x720 JPEG using Chrome or Edge headless."""
+    chrome_path = find_chrome_executable()
+    if not chrome_path:
+        return False
+
+    cmd = [
+        chrome_path,
+        "--headless=new",
+        f"--screenshot={out_path}",
+        "--window-size=1280,720",
+        "--hide-scrollbars",
+        "--virtual-time-budget=3000",
+        "--disable-gpu",
+        "--no-sandbox",
+        html_file.as_uri()
+    ]
+    try:
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        return out_path.exists() and out_path.stat().st_size > 5000
+    except Exception as exc:
+        print(f"[CHROME] Headless render error: {exc}")
+        return False
 
 
 def make_thumbnail(
-    text: str,
-    output: str,
-    font_path: str = None,
-    font_style: str = "baloo",
-    background: str = None,
+    metadata_path: str = None,
+    output: str = "output/thumbnail.jpg",
     video_path: str = None,
-    channel_name: str = "Kisan bdlega",
-    top_badge: str = "🔥 नई कृषि तकनीक 2026",
-    stat_callout: str = "बंपर मुनाफा",
-    stat_sub: str = "100% सटीक जानकारी"
-):
-    """Generate high-CTR YouTube thumbnail."""
-    # 1. Base image setup
+    custom_bg: str = None,
+    text: str = None,
+    channel_name: str = "Kisan bdlega"
+) -> str:
+    """Main entrypoint: generates a pro high-CTR YouTube thumbnail."""
     out_path = Path(output).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_dir = out_path.parent / "_thumb_temp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
-    img = None
-    # Try video frame extraction if video provided
-    if video_path and Path(video_path).exists():
-        temp_frame = out_path.parent / "temp_extracted_frame.jpg"
-        if extract_video_frame(Path(video_path), temp_frame):
-            try:
-                frame_img = Image.open(temp_frame).convert("RGB").resize((W, H))
-                img = apply_dark_fade_overlay(frame_img)
-            except Exception:
-                pass
-            finally:
-                if temp_frame.exists():
-                    try: os.remove(temp_frame)
-                    except Exception: pass
-
-    # Try custom background image
-    if img is None and background and Path(background).is_file():
+    # 1. Parse Metadata or set defaults
+    meta = {}
+    if metadata_path and Path(metadata_path).is_file():
         try:
-            bg_img = Image.open(background).convert("RGB").resize((W, H))
-            img = apply_dark_fade_overlay(bg_img)
-        except Exception:
-            pass
+            meta = json.loads(Path(metadata_path).read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[WARN] Failed to load metadata: {e}")
 
-    # Default: Rich multi-stop gradient with radial spotlight
-    if img is None:
-        img = create_gradient_backdrop()
+    # Determine Format: 'scheme', 'profit', or 'tech'
+    fmt_type = meta.get("thumbnail_format", "")
+    if not fmt_type:
+        topic_lower = (meta.get("topic") or meta.get("title") or text or "").lower()
+        if any(k in topic_lower for k in ["सब्सिडी", "योजना", "निधि", "kusum", "pm kisan", "scheme"]):
+            fmt_type = "scheme"
+        elif any(k in topic_lower for k in ["कमाई", "मुनाफा", "लाख", "करोड़", "business", "profit", "पॉलीहाउस"]):
+            fmt_type = "profit"
+        else:
+            fmt_type = "tech"
 
+    # Default values per format
+    if fmt_type == "scheme":
+        alert_bg = "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+        alert_border = "#fca5a5"
+        default_top = "🚨 सरकारी योजना 2026"
+        default_line1 = meta.get("thumbnail_line1") or "सरकारी योजना से"
+        default_highlight = meta.get("thumbnail_highlight") or "80% सब्सिडी तुरंत!"
+        default_benefit = meta.get("thumbnail_benefit") or "⚡ बिजली बिल ₹0 • पानी भरपूर सप्लाई"
+        default_num = meta.get("thumbnail_stat_num") or "80%"
+        default_title = meta.get("thumbnail_stat_title") or "सरकारी सब्सिडी"
+        default_tag = meta.get("thumbnail_stat_tag") or "✔ ऑनलाइन आवेदन शुरू"
+        default_prompt = (
+            "Cinematic YouTube thumbnail of an Indian farmer smiling with thumbs up standing next to "
+            "modern solar panels powering an irrigation pump gushing clean water into a lush green field, "
+            "sunny blue sky, photorealistic, 4K commercial photography quality, vivid saturated colors."
+        )
+    elif fmt_type == "profit":
+        alert_bg = "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
+        alert_border = "#fde68a"
+        default_top = "💰 बंपर कमाई 2026"
+        default_line1 = meta.get("thumbnail_line1") or "आधुनिक खेती से"
+        default_highlight = meta.get("thumbnail_highlight") or "₹5 लाख महीना कमाई!"
+        default_benefit = meta.get("thumbnail_benefit") or "🚀 कम जमीन में 4x ज्यादा मुनाफा"
+        default_num = meta.get("thumbnail_stat_num") or "₹5L"
+        default_title = meta.get("thumbnail_stat_title") or "प्रति महीना कमाई"
+        default_tag = meta.get("thumbnail_stat_tag") or "✔ 100% सफल मॉडल"
+        default_prompt = (
+            "Cinematic YouTube thumbnail inside a modern high-tech commercial polyhouse greenhouse in India, "
+            "lush rows of ripe red tomatoes, proud Indian farmer holding fresh harvest basket, "
+            "diffused greenhouse sunlight, photorealistic, 4K commercial agricultural photography, vivid rich colors."
+        )
+    else:  # tech
+        alert_bg = "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)"
+        alert_border = "#fca5a5"
+        default_top = "🔥 2026 की नई तकनीक"
+        default_line1 = meta.get("thumbnail_line1") or "स्मार्ट खेती तकनीक से"
+        default_highlight = meta.get("thumbnail_highlight") or "कम पानी, बंपर पैदावार!"
+        default_benefit = meta.get("thumbnail_benefit") or "💧 80% पानी की बचत + ड्रोन छिड़काव"
+        default_num = meta.get("thumbnail_stat_num") or "3X"
+        default_title = meta.get("thumbnail_stat_title") or "बंपर पैदावार"
+        default_tag = meta.get("thumbnail_stat_tag") or "✔ 100% सटीक जानकारी"
+        default_prompt = (
+            "Cinematic YouTube thumbnail of an Indian smart farmer holding an illuminated telemetry tablet "
+            "in a lush green crop field with drip irrigation pipes and an agricultural drone hovering in golden hour sky, "
+            "4K commercial photography quality, vivid saturated colors."
+        )
+
+    # Use explicit text if passed via CLI
+    if text:
+        default_highlight = text
+
+    # 2. Prepare Background Image
+    bg_img_path = temp_dir / "bg_visual.jpg"
+    bg_ready = False
+
+    # A. Custom image passed
+    if custom_bg and Path(custom_bg).is_file():
+        shutil.copy(custom_bg, bg_img_path)
+        bg_ready = True
+
+    # B. Imagen 3 via GEMINI_API_KEY
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    img_prompt = meta.get("thumbnail_image_prompt") or default_prompt
+    if not bg_ready and gemini_key:
+        print("[THUMBNAIL] Attempting Google Imagen 3 generation...")
+        bg_ready = generate_imagen3_background(img_prompt, gemini_key, bg_img_path)
+
+    # C. Pollinations Flux fallback
+    if not bg_ready:
+        print("[THUMBNAIL] Falling back to Pollinations AI generation...")
+        bg_ready = generate_pollinations_background(img_prompt, bg_img_path)
+
+    # D. Video frame extraction fallback
+    if not bg_ready and video_path and Path(video_path).is_file():
+        print("[THUMBNAIL] Falling back to video frame extraction...")
+        bg_ready = extract_video_frame(Path(video_path), bg_img_path)
+
+    # E. Gradient fallback
+    if not bg_ready:
+        print("[THUMBNAIL] Falling back to cinematic gradient...")
+        create_gradient_backdrop(bg_img_path)
+        bg_ready = True
+
+    # 3. Render via Chrome Headless
+    fmt_data = {
+        "bg_url": bg_img_path.name,
+        "bg_pos": "right 30%",
+        "channel": f"🌾 {channel_name.upper()}",
+        "alert_bg": alert_bg,
+        "alert_border": alert_border,
+        "top_badge": meta.get("thumbnail_top_badge") or default_top,
+        "line1": meta.get("thumbnail_line1") or default_line1,
+        "highlight": meta.get("thumbnail_highlight") or default_highlight,
+        "benefit": meta.get("thumbnail_benefit") or default_benefit,
+        "stat_num": meta.get("thumbnail_stat_num") or default_num,
+        "stat_title": meta.get("thumbnail_stat_title") or default_title,
+        "stat_tag": meta.get("thumbnail_stat_tag") or default_tag,
+    }
+
+    html_file = temp_dir / "thumbnail.html"
+    html_file.write_text(HTML_TEMPLATE.format(**fmt_data), encoding="utf-8")
+
+    rendered = render_with_chrome(html_file, out_path)
+    if rendered:
+        print(f"[THUMBNAIL] Successfully rendered Pro High-CTR Thumbnail: {out_path}")
+        return str(out_path)
+
+    # Fallback to pure Pillow rendering if Chrome unavailable
+    print("[THUMBNAIL] Chrome not found; using Pillow rendering fallback...")
+    _render_pillow_fallback(bg_img_path, out_path, fmt_data)
+    return str(out_path)
+
+
+def _render_pillow_fallback(bg_path: Path, out_path: Path, data: dict):
+    """Pillow fallback rendering in case Chrome is not found on environment."""
+    img = Image.open(bg_path).convert("RGB").resize((W, H))
     draw = ImageDraw.Draw(img)
 
-    # 2. Channel Branding Badge (Top Left)
-    font_badge = resolve_font("poppins", 24)
-    ch_text = f"🌾 {channel_name.upper()}"
-    b_bbox = draw.textbbox((0, 0), ch_text, font=font_badge)
-    bw, bh = b_bbox[2] - b_bbox[0], b_bbox[3] - b_bbox[1]
-    draw_pill(draw, (50, 36, 50 + bw + 34, 36 + bh + 16), (15, 23, 42), (51, 65, 85), 2, 10)
-    draw.text((66, 43), ch_text, font=font_badge, fill=(248, 250, 252))
+    # Dark gradient overlay
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    for x in range(W):
+        t = x / W
+        alpha = int(245 * max(0, 1 - t * 1.3))
+        ov_draw.line([(x, 0), (x, H)], fill=(5, 12, 10, alpha))
+    img.paste(Image.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, 0)), overlay).convert("RGB"), (0, 0), overlay)
 
-    # 3. Top Alert Hook Pill
-    font_hook = resolve_font("baloo", 28)
-    h_bbox = draw.textbbox((0, 0), top_badge, font=font_hook)
-    hw, hh = h_bbox[2] - h_bbox[0], h_bbox[3] - h_bbox[1]
-    draw_pill(draw, (50, 105, 50 + hw + 34, 105 + hh + 18), (220, 38, 38), (248, 113, 113), 2, 12)
-    draw.text((66, 112), top_badge, font=font_hook, fill=(255, 255, 255))
-
-    # 4. Text Line Splitting & Typography
-    words = [w.strip() for w in text.split() if w.strip()]
-    if not words:
-        words = ["किसान", "बदलेगा", "विशेष"]
-
-    # Divide words into 2 or 3 high-impact lines
-    if len(words) <= 3:
-        line1 = " ".join(words[:1])
-        line2 = " ".join(words[1:]) if len(words) > 1 else "बड़ा खुलासा"
-        line3 = "पूरी जानकारी देखें ➔"
-    elif len(words) <= 6:
-        split_idx = len(words) // 2
-        line1 = " ".join(words[:split_idx])
-        line2 = " ".join(words[split_idx:])
-        line3 = "पूरी जानकारी देखें ➔"
-    else:
-        line1 = " ".join(words[:3])
-        line2 = " ".join(words[3:7])
-        line3 = " ".join(words[7:10]) if len(words) > 7 else "पूरी जानकारी देखें ➔"
-
-    # Line 1: Main Title (Bold White with Deep Shadow)
-    font_l1 = resolve_font("baloo", 82)
-    y_pos = 195
-    draw.text((54, y_pos + 6), line1, font=font_l1, fill=(0, 0, 0))
-    draw.text((50, y_pos), line1, font=font_l1, fill=(255, 255, 255), stroke_width=4, stroke_fill=(15, 23, 42))
-
-    # Line 2: Highlight Sticker Ribbon (Bright Yellow on Contrast Pill)
-    y_pos += 112
-    font_l2 = resolve_font("baloo", 80)
-    l2_bbox = draw.textbbox((0, 0), line2, font=font_l2)
-    l2_w, l2_h = l2_bbox[2] - l2_bbox[0], l2_bbox[3] - l2_bbox[1]
-    max_w = min(l2_w + 36, 750)
-    draw_pill(draw, (48, y_pos - 6, 50 + max_w, y_pos + l2_h + 16), (250, 204, 21), (255, 255, 255), 3, 16)
-    draw.text((66, y_pos + 4), line2, font=font_l2, fill=(15, 23, 42))
-
-    # Line 3: Supporting Benefit Ribbon (Emerald Green Pill)
-    y_pos += l2_h + 36
-    font_l3 = resolve_font("baloo", 44)
-    l3_bbox = draw.textbbox((0, 0), line3, font=font_l3)
-    l3_w, l3_h = l3_bbox[2] - l3_bbox[0], l3_bbox[3] - l3_bbox[1]
-    draw_pill(draw, (48, y_pos, 50 + l3_w + 32, y_pos + l3_h + 18), (22, 101, 52), (74, 222, 128), 2, 14)
-    draw.text((64, y_pos + 8), line3, font=font_l3, fill=(240, 253, 244))
-
-    # 5. Right Side - Glowing 3D Callout Badge
-    cx, cy = 980, 360
-    # Outer emerald glow ring
-    draw.ellipse([cx - 185, cy - 185, cx + 185, cy + 185], fill=(22, 101, 52), outline=(34, 197, 94), width=4)
-    # Middle dark circle
-    draw.ellipse([cx - 160, cy - 160, cx + 160, cy + 160], fill=(15, 23, 42), outline=(250, 204, 21), width=5)
-
-    # Big Callout Text
-    font_stat = resolve_font("baloo", 58)
-    st_bbox = draw.textbbox((0, 0), stat_callout, font=font_stat)
-    st_w = st_bbox[2] - st_bbox[0]
-    draw.text((cx - st_w // 2, cy - 66), stat_callout, font=font_stat, fill=(250, 204, 21))
-
-    # Divider
-    draw.line([cx - 80, cy + 16, cx + 80, cy + 16], fill=(234, 179, 8), width=3)
-
-    # Subtext
-    font_ss = resolve_font("baloo", 30)
-    ss_bbox = draw.textbbox((0, 0), stat_sub, font=font_ss)
-    ss_w = ss_bbox[2] - ss_bbox[0]
-    draw.text((cx - ss_w // 2, cy + 28), stat_sub, font=font_ss, fill=(255, 255, 255))
-
-    # Verified pill
-    draw_pill(draw, (cx - 75, cy + 112, cx + 75, cy + 152), (34, 197, 94), (255, 255, 255), 2, 10)
-    font_v = resolve_font("poppins", 20)
-    v_text = "✔ 100% सही"
-    v_bbox = draw.textbbox((0, 0), v_text, font=font_v)
-    vw = v_bbox[2] - v_bbox[0]
-    draw.text((cx - vw // 2, cy + 120), v_text, font=font_v, fill=(15, 23, 42))
-
-    # Outer border
-    draw.rectangle([0, 0, W - 1, H - 1], outline=(51, 65, 85), width=3)
-
-    img.save(out_path, quality=98)
-    return str(out_path)
+    draw = ImageDraw.Draw(img)
+    font_large = ImageFont.load_default()
+    # Draw simple fallback text
+    draw.text((60, 60), data["top_badge"], fill=(239, 68, 68), font=font_large)
+    draw.text((60, 140), data["line1"], fill=(255, 255, 255), font=font_large)
+    draw.text((60, 240), data["highlight"], fill=(250, 204, 21), font=font_large)
+    draw.text((60, 340), data["benefit"], fill=(74, 222, 128), font=font_large)
+    img.save(str(out_path), quality=95)
 
 
 def main():
     ap = argparse.ArgumentParser(description="Generate high-CTR YouTube thumbnail")
-    ap.add_argument("--text", required=True, help="Main catchy thumbnail text")
+    ap.add_argument("--metadata", help="Path to metadata.json containing title and prompt")
+    ap.add_argument("--text", default="", help="Main catchy thumbnail text")
     ap.add_argument("--output", default="output/thumbnail.jpg", help="Output thumbnail path")
     ap.add_argument("--background", help="Custom background image path")
     ap.add_argument("--video", help="Video path to extract high quality frame")
-    ap.add_argument("--font", default="", help="Specific font path")
-    ap.add_argument("--font-style", default="baloo", choices=["baloo", "mukta", "poppins", "hind", "noto"])
+    ap.add_argument("--font", default="", help="Specific font path (kept for compatibility)")
+    ap.add_argument("--font-style", default="baloo", help="Font style (kept for compatibility)")
     ap.add_argument("--channel", default="Kisan bdlega", help="Channel name")
-    ap.add_argument("--badge", default="🔥 नई कृषि तकनीक 2026", help="Top alert badge text")
-    ap.add_argument("--stat", default="बंपर मुनाफा", help="Stat callout text")
-    ap.add_argument("--stat-sub", default="100% सटीक जानकारी", help="Stat callout subtext")
     args = ap.parse_args()
 
     out = make_thumbnail(
-        text=args.text,
+        metadata_path=args.metadata,
         output=args.output,
-        font_path=args.font,
-        font_style=args.font_style,
-        background=args.background,
         video_path=args.video,
-        channel_name=args.channel,
-        top_badge=args.badge,
-        stat_callout=args.stat,
-        stat_sub=args.stat_sub
+        custom_bg=args.background,
+        text=args.text,
+        channel_name=args.channel
     )
     print(f"Generated High-CTR YouTube thumbnail: {out}")
 

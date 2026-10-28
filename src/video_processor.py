@@ -391,7 +391,8 @@ def remove_or_replace_watermark(
                 return
         raise RuntimeError("Failed to remove/replace watermark")
 
-    print(f"[WATERMARK] Succeeded -> {output_video} ({output_video.stat().st_size:,} bytes)")
+    size_str = f" ({output_video.stat().st_size:,} bytes)" if output_video.exists() else ""
+    print(f"[WATERMARK] Succeeded -> {output_video}{size_str}")
 
 
 def concat_intro_video(intro_video: Path, main_video: Path, output_video: Path):

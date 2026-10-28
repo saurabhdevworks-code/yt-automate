@@ -58,16 +58,12 @@ if (Test-Path $videoFile) {
     Write-Host "`n[WARNING] Video file not found at $videoFile to post-process." -ForegroundColor Yellow
 }
 
-# 6. Generate Thumbnail (if font exists)
-if (Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") {
-    Write-Host "`n[4/5] Generating Thumbnail..." -ForegroundColor Yellow
-    $meta = Get-Content "output\metadata.json" | ConvertFrom-Json
-    $thumbText = $meta.thumbnail_text
-    if ($thumbText) {
-        python -m src.thumbnail --text "$thumbText" --output "output\thumbnail.jpg" --font "assets\fonts\NotoSansDevanagari-Bold.ttf"
-    }
+# 6. Generate Pro High-CTR Thumbnail
+Write-Host "`n[4/5] Generating Pro High-CTR Thumbnail with AI & Headless Chrome..." -ForegroundColor Yellow
+if (Test-Path "output\metadata.json") {
+    python -m src.thumbnail --metadata "output\metadata.json" --video "$videoFile" --output "output\thumbnail.jpg"
 } else {
-    Write-Host "`n[4/5] Skipping thumbnail (NotoSansDevanagari font not installed)." -ForegroundColor Gray
+    python -m src.thumbnail --text "किसान बदलेगा" --output "output\thumbnail.jpg"
 }
 
 # 7. Upload to YouTube

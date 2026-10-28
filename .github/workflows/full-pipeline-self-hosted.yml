@@ -54,14 +54,15 @@ jobs:
         run: |
           py -m src.video_processor --video "output\notebooklm\notebooklm_video.mp4" --mode auto --metadata "output\metadata.json"
 
-      - name: Create thumbnail when Devanagari font is configured
+      - name: Generate Pro High-CTR YouTube Thumbnail
         shell: powershell
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          if ((Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") -and (Test-Path "output\metadata.json")) {
-            $meta = Get-Content "output\metadata.json" | ConvertFrom-Json
-            if ($meta.thumbnail_text) {
-              py -m src.thumbnail --text "$($meta.thumbnail_text)" --output "output\thumbnail.jpg" --font "assets\fonts\NotoSansDevanagari-Bold.ttf"
-            }
+          if (Test-Path "output\thumbnail.jpg") {
+            Write-Host "[RESUME] Thumbnail already present. Skipping creation."
+          } else {
+            py -m src.thumbnail --metadata "output\metadata.json" --video "output\notebooklm\notebooklm_video.mp4" --output "output\thumbnail.jpg"
           }
       - name: Upload to YouTube privately
         shell: powershell

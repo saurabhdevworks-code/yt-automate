@@ -31,8 +31,56 @@ def load_context():
         "thumbnail_fonts": ["Mukta", "Hind", "Poppins", "Baloo"]
     }
 
-def generate_metadata(topic, audience, channel_info):
+def generate_metadata(topic, audience, channel_info=None):
+    if channel_info is None:
+        channel_info = load_context()
     ch_name = channel_info.get("channel_name", "Kisan bdlega")
+
+    # Smart fallback based on topic classification
+    topic_l = topic.lower()
+    if any(k in topic_l for k in ["सब्सिडी", "योजना", "निधि", "kusum", "pm kisan", "scheme"]):
+        fmt_type = "scheme"
+        line1 = f"{topic[:16]} योजना"
+        highlight = "80% सब्सिडी तुरंत!"
+        benefit = "⚡ बिजली बिल ₹0 • पानी भरपूर सप्लाई"
+        top_badge = "🚨 सरकारी योजना 2026"
+        stat_num = "80%"
+        stat_title = "सरकारी सब्सिडी"
+        stat_tag = "✔ ऑनलाइन आवेदन शुरू"
+        img_prompt = (
+            "Cinematic YouTube thumbnail of an Indian farmer smiling with thumbs up standing next to "
+            "modern solar panels powering an irrigation pump gushing clean water into a lush green field, "
+            "sunny blue sky, photorealistic, 4K commercial photography quality, vivid saturated colors."
+        )
+    elif any(k in topic_l for k in ["कमाई", "मुनाफा", "लाख", "करोड़", "business", "profit", "पॉलीहाउस"]):
+        fmt_type = "profit"
+        line1 = f"{topic[:16]} से"
+        highlight = "₹5 लाख महीना कमाई!"
+        benefit = "🚀 कम जमीन में 4x ज्यादा मुनाफा"
+        top_badge = "💰 बंपर कमाई 2026"
+        stat_num = "₹5L"
+        stat_title = "प्रति महीना कमाई"
+        stat_tag = "✔ 100% सफल मॉडल"
+        img_prompt = (
+            "Cinematic YouTube thumbnail inside a modern high-tech commercial polyhouse greenhouse in India, "
+            "lush rows of ripe red tomatoes, proud Indian farmer holding fresh harvest basket, "
+            "diffused greenhouse sunlight, photorealistic, 4K commercial agricultural photography, vivid rich colors."
+        )
+    else:
+        fmt_type = "tech"
+        line1 = f"{topic[:16]} तकनीक"
+        highlight = "कम पानी, बंपर पैदावार!"
+        benefit = "💧 80% पानी की बचत + ड्रोन छिड़काव"
+        top_badge = "🔥 2026 की नई तकनीक"
+        stat_num = "3X"
+        stat_title = "बंपर पैदावार"
+        stat_tag = "✔ 100% सटीक जानकारी"
+        img_prompt = (
+            "Cinematic YouTube thumbnail of an Indian smart farmer holding an illuminated telemetry tablet "
+            "in a lush green crop field with drip irrigation pipes and an agricultural drone hovering in golden hour sky, "
+            "4K commercial photography quality, vivid saturated colors."
+        )
+
     fallback = {
         "title": f"{topic} | {ch_name} - किसान बदलेगा",
         "description": (
@@ -49,7 +97,16 @@ def generate_metadata(topic, audience, channel_info):
             "Crop Protection", "Organic Farming India", "Hindi Farming Guide"
         ],
         "hashtags": ["#KisanBdlega", "#KhetiBadi", "#SmartFarming", "#IndianAgriculture"],
-        "thumbnail_text": "किसान बदलेगा"
+        "thumbnail_text": highlight,
+        "thumbnail_format": fmt_type,
+        "thumbnail_line1": line1,
+        "thumbnail_highlight": highlight,
+        "thumbnail_benefit": benefit,
+        "thumbnail_top_badge": top_badge,
+        "thumbnail_stat_num": stat_num,
+        "thumbnail_stat_title": stat_title,
+        "thumbnail_stat_tag": stat_tag,
+        "thumbnail_image_prompt": img_prompt
     }
 
     key = os.getenv("GEMINI_API_KEY")
@@ -67,7 +124,16 @@ def generate_metadata(topic, audience, channel_info):
         "2. description: Detailed, informative Hindi description with intro, bullet points, call-to-action for 'Kisan bdlega', and hashtags.\n"
         "3. tags: Array of 20-30 high-ranking Hindi & English YouTube search tags related to Indian farming and this topic.\n"
         "4. hashtags: 3-5 relevant hashtags including #KisanBdlega.\n"
-        "5. thumbnail_text: 2-4 punchy Hindi Devanagari words that farmers can read easily on mobile screens.\n"
+        "5. thumbnail_format: pick one of 'scheme', 'profit', or 'tech' depending on what fits the topic best.\n"
+        "6. thumbnail_line1: Short context line in Hindi (e.g. 'सोलर पंप योजना से' or 'पॉलीहाउस खेती से') (3-5 words).\n"
+        "7. thumbnail_highlight: High-contrast emotional hook in Hindi for yellow sticker ribbon (e.g. '80% सब्सिडी तुरंत!' or '₹5 लाख महीना कमाई!') (under 25 chars).\n"
+        "8. thumbnail_benefit: Green benefit pill in Hindi with icon (e.g. '⚡ बिजली बिल ₹0 • पानी भरपूर सप्लाई' or '🚀 कम जमीन में 4x ज्यादा मुनाफा') (under 40 chars).\n"
+        "9. thumbnail_top_badge: Alert hook in Hindi (e.g. '🚨 सरकारी योजना 2026' or '💰 बंपर कमाई 2026' or '🔥 2026 की नई तकनीक').\n"
+        "10. thumbnail_stat_num: Bold stat number or value (e.g. '80%' or '₹5L' or '3X').\n"
+        "11. thumbnail_stat_title: Stat label in Hindi (e.g. 'सरकारी सब्सिडी' or 'प्रति महीना कमाई' or 'बंपर पैदावार').\n"
+        "12. thumbnail_stat_tag: Trust/action tag in Hindi (e.g. '✔ ऑनलाइन आवेदन शुरू' or '✔ 100% सफल मॉडल').\n"
+        "13. thumbnail_image_prompt: Highly detailed 16:9 cinematic prompt for Google Imagen 3 image generation showing Indian farmer, agricultural setting, 4K commercial photography quality, vivid saturated colors.\n"
+        "14. thumbnail_text: 2-4 punchy Hindi Devanagari words for mobile.\n"
         "Return ONLY a valid JSON object matching these keys."
     )
     try:
