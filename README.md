@@ -41,7 +41,7 @@ flowchart TD
     E --> F["5. YouTube Upload<br>(src.youtube_upload)"]
     
     subgraph S1["Step 1: Research Pack"]
-        B0["Check config/ideas.csv for pending topics"]
+        B0["Check context/topics.csv for pending topics"]
         B1["Fallback: RSS Feeds & Wikipedia Scan"]
         B2["Gemini AI Topic Synthesis"]
         B0 --> B2
@@ -57,12 +57,12 @@ flowchart TD
     subgraph S3["Step 3: Video Post-Processing (FFmpeg)"]
         D1["Auto Trim: Cuts off final 3s NotebookLM outro"]
         D2["Watermark Engine: FFmpeg delogo removes corner watermark"]
-        D3["Optional: Overlay assets/images/watermark.* or URL image"]
+        D3["Optional: Overlay context/images/watermark/* or URL image"]
         D4["Optional: Concatenate custom intro video"]
     end
     
     subgraph S4["Step 4: Thumbnail Creation"]
-        E1["Load Devanagari Fonts"] --> E2["Render High-CTR 1280x720 Thumbnail"]
+        E1["Load Devanagari Fonts from context/fonts/"] --> E2["Render High-CTR 1280x720 Thumbnail"]
     end
     
     subgraph S5["Step 5: YouTube Upload"]
@@ -77,7 +77,7 @@ flowchart TD
 
 ### **Step 1: AI Topic Research & Research Pack Generation** (`src/generate_pack.py`)
 - **What it does:** Selects a high-impact topic and prepares all resources required by NotebookLM:
-  - **Predefined CSV Ideas (Optional)**: Automatically checks `config/ideas.csv` first for any unused topic. Marks it as `used` with timestamp to avoid duplicates.
+  - **Predefined CSV Topics (Optional)**: Automatically checks [`context/topics.csv`](context/topics.csv) first for any unused topic. Marks it as `used` with timestamp to avoid duplicates.
   - **Automatic RSS / Wikipedia Scan**: If no unused idea is found in the CSV, it automatically discovers trending agriculture topics from Google News RSS feeds, Krishi Jagran, and Wikipedia.
   - **In Custom Mode**: Accepts an explicit custom topic via input (e.g. *Polyhouse Farming Guide*).
 - **Files Created**:
@@ -94,12 +94,12 @@ flowchart TD
 - **Auto Outro Trimming**: In `auto` mode, detects video duration using `ffprobe` and cuts off the last **3 seconds** of the video to remove NotebookLM's default concluding screen (`"Made with NotebookLM"`).
 - **Watermark Removal (`delogo`)**: Automatically removes the NotebookLM watermark badge in the bottom-right corner using FFmpeg spatial interpolation (`delogo`).
 - **Custom Branding Replacement**:
-  - If you put an image in `assets/images/` named `watermark.*` (or provide a URL via `custom_watermark_url`), the pipeline removes the watermark and overlays your custom logo in that exact spot.
+  - If you put an image in `context/images/watermark/` named `watermark.*` (or provide a URL via `custom_watermark_url`), the pipeline removes the watermark and overlays your custom logo in that exact spot.
   - If **no image** is provided, the watermark stays cleanly removed with no replacement image added.
 - **Intro Video (Optional)**: If you provide an intro video link, it seamlessly merges your intro before the main video, standardizing 1080p resolution and stereo audio.
 
 ### **Step 4: High-CTR Hindi Thumbnail Generation** (`src/thumbnail.py`)
-- **What it does:** Generates a YouTube-compliant 1280x720 thumbnail with Devanagari Hindi text rendering (using fonts like `NotoSansDevanagari-Bold.ttf`, `Mukta-Bold.ttf`, `Baloo2-Bold.ttf`).
+- **What it does:** Generates a YouTube-compliant 1280x720 thumbnail with Devanagari Hindi text rendering (using fonts from `context/fonts/`).
 - Uses high-contrast backgrounds, badge accents, and catchy text from `metadata.json`.
 - Can be overridden by supplying a direct link via `custom_thumbnail_url`.
 
@@ -120,9 +120,9 @@ flowchart TD
 
 | Steps | Component / Script | Kya Karega (Summary & Action) | Input / Source | Output File(s) |
 | :---: | :--- | :--- | :--- | :--- |
-| **Step 1** | **AI Topic Research**<br>([`src.generate_pack`](src/generate_pack.py)) | • `config/ideas.csv` se next unused topic pick karta hai aur `used` mark karta hai.<br>• Agar CSV na ho ya sab used hon, toh RSS/Wikipedia scan karke trending topic leta hai.<br>• Gemini AI se factual brief, video prompt aur SEO metadata generate karta hai. | `config/ideas.csv` / RSS Feeds / Wikipedia | • `output/notebooklm_research_brief.md`<br>• `output/notebooklm_prompt.txt`<br>• `output/metadata.json` |
+| **Step 1** | **AI Topic Research**<br>([`src.generate_pack`](src/generate_pack.py)) | • `context/topics.csv` se next unused topic pick karta hai aur `used` mark karta hai.<br>• Agar CSV na ho ya sab used hon, toh RSS/Wikipedia scan karke trending topic leta hai.<br>• Gemini AI se factual brief, video prompt aur SEO metadata generate karta hai. | `context/topics.csv` / RSS Feeds / Wikipedia | • `output/notebooklm_research_brief.md`<br>• `output/notebooklm_prompt.txt`<br>• `output/metadata.json` |
 | **Step 2** | **NotebookLM Video Generator**<br>([`src.notebooklm_api_automation`](src/notebooklm_api_automation.py)) | • Google account se secure connect hota hai (permanent token ke zariye).<br>• Notebook banakar sources aur prompt inject karta hai.<br>• Google NotebookLM se cinematic Hindi Video Overview render aur download karta hai. | Research Brief & Prompt files | • `output/notebooklm/notebooklm_video.mp4` |
-| **Step 3** | **Video Post-Processing**<br>([`src.video_processor`](src/video_processor.py)) | • **Auto Outro Trim**: Last 3s cut karke NotebookLM ending outro card hatata hai.<br>• **Watermark Remove**: FFmpeg `delogo` filter se corner watermark completely erase karta hai.<br>• **Custom Logo Overlay**: Agar `assets/images/watermark.*` ho toh use add karta hai; warna bina kisi image ke watermark remove hi rehta hai.<br>• **Intro Attach**: Agar intro URL diya ho toh aage merge karta hai. | Raw Video (`notebooklm_video.mp4`) + optional intro / watermark | • Final Processed Video (`notebooklm_video.mp4`) |
+| **Step 3** | **Video Post-Processing**<br>([`src.video_processor`](src/video_processor.py)) | • **Auto Outro Trim**: Last 3s cut karke NotebookLM ending outro card hatata hai.<br>• **Watermark Remove**: FFmpeg `delogo` filter se corner watermark completely erase karta hai.<br>• **Custom Logo Overlay**: Agar `context/images/watermark/*` ho toh use add karta hai; warna bina kisi image ke watermark remove hi rehta hai.<br>• **Intro Attach**: Agar intro URL diya ho toh aage merge karta hai. | Raw Video (`notebooklm_video.mp4`) + optional intro / watermark | • Final Processed Video (`notebooklm_video.mp4`) |
 | **Step 4** | **Pro High-CTR AI Thumbnail Creator**<br>([`src.thumbnail`](src/thumbnail.py)) | • **AI Photorealistic Visual**: Google Imagen 3 (`GEMINI_API_KEY`) ya Pollinations Flux se 4K agriculture background generate karta hai.<br>• **3 Dynamic Formats**: Topic ke anusaar format select karta hai (1: *योजना/सब्सिडी*, 2: *कमाई/मुनाफा*, 3: *स्मार्ट तकनीक/विधि*).<br>• **Pixel-Perfect Rendering**: Headless Chrome se anti-aliased Baloo 2 font, 3D text shadows, yellow highlight ribbons aur verified subsidy badges overlay karta hai. | `output/metadata.json` + `GEMINI_API_KEY` | • `output/thumbnail.jpg` (1280x720 Pro Quality) |
 | **Step 5** | **Automated YouTube Uploader**<br>([`src.youtube_upload`](src/youtube_upload.py)) | • YouTube Data API v3 OAuth se connect karta hai.<br>• Title, Description, Tags, Thumbnail ke sath video YouTube par upload karta hai.<br>• Upload status aur video link JSON me save karta hai. | Processed Video + Thumbnail + Metadata | • Video uploaded to YouTube (Private/Public)<br>• `output/upload_result.json` |
 
@@ -132,18 +132,18 @@ flowchart TD
 
 | Feature | Auto Mode (`mode: auto`) | Custom Mode (`mode: custom`) |
 | :--- | :--- | :--- |
-| **Topic Selection** | `config/ideas.csv` (next pending) → RSS/Wikipedia fallback | Custom topic specified by you |
+| **Topic Selection** | `context/topics.csv` (next pending) → RSS/Wikipedia fallback | Custom topic specified by you |
 | **Outro Trimming** | **Automatically trims last 3 seconds** | Trims only if `custom_trim_start` / `custom_trim_end` provided |
 | **Watermark Removal** | **Active (FFmpeg delogo)** | **Active (FFmpeg delogo)** |
-| **Watermark Image** | Uses `assets/images/watermark.*` if present | Uses `assets/images/watermark.*` or `custom_watermark_url` |
+| **Watermark Image** | Uses `context/images/watermark/*` if present | Uses `context/images/watermark/*` or `custom_watermark_url` |
 | **Schedule Support** | Runs daily at 09:00 IST via cron | Triggered manually via `workflow_dispatch` |
 | **YouTube Metadata** | Auto-generated by AI | Can be customized via inputs or auto-generated |
 
 ---
 
-## 💡 Optional: Curated Video Ideas from CSV (`config/ideas.csv`)
+## 💡 Optional: Curated Video Ideas from CSV (`context/topics.csv`)
 
-Aap apne custom topics ko [`config/ideas.csv`](config/ideas.csv) me list kar sakte hain. Jab pipeline chalega, toh woh yahan se line-by-line topic pick karega aur pick hote hi status ko **`used`** mark kar dega taaki **kabhi bhi duplicate video na bane**!
+Aap apne custom topics ko [`context/topics.csv`](context/topics.csv) me list kar sakte hain. Jab pipeline chalega, toh woh yahan se line-by-line topic pick karega aur pick hote hi status ko **`used`** mark kar dega taaki **kabhi bhi duplicate video na bane**!
 
 ### Key Features:
 1. **No Duplication**: Ek baar topic pick hone ke baad status `used` ho jata hai aur `used_at` timestamp save ho jata hai.

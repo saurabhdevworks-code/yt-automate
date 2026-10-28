@@ -1,1 +1,0 @@
-Place a licensed Devanagari font here named `NotoSansDevanagari-Bold.ttf`. The project intentionally does not bundle a font file. Ensure you have rights to use and redistribute any font you add.

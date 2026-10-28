@@ -7,8 +7,11 @@ __pycache__/
 *.pyc
 output/*
 !output/.gitkeep
-!assets/fonts/*.ttf
-!assets/fonts/README.md
+
+!context/fonts/*.ttf
+!context/fonts/README.md
+!context/thumbnail_templates/*.html
+!context/images/**/*
 
 storage_state.json
 master_token.json
@@ -17,16 +20,10 @@ master_token.json
 *.png
 *.jpg
 *.jpeg
-!assets/*.png
-!assets/*.jpg
-!assets/*.jpeg
-!assets/*.webp
-!assets/**/*.png
-!assets/**/*.jpg
-!assets/**/*.jpeg
-!assets/**/*.webp
-!assets/images/*
-!assets/images/**/*
+!context/**/*.png
+!context/**/*.jpg
+!context/**/*.jpeg
+!context/**/*.webp
 
 .*.lock
 *.context.json
