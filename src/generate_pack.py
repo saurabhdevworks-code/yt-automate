@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import requests
 from src.research import discover_topics
-from src.ideas_manager import pick_and_mark_next_idea, mark_idea_used
+from src.ideas_manager import pick_and_mark_next_idea, mark_idea_used, resolve_ideas_csv
 
 ROOT = Path(__file__).resolve().parents[1]
 
