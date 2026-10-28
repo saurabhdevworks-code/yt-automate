@@ -10,6 +10,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import requests
 from src.research import discover_topics
+from src.ideas_manager import pick_and_mark_next_idea, mark_idea_used
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -97,16 +98,23 @@ def main():
     ap.add_argument("--custom-title", default="", help="Custom YouTube title")
     ap.add_argument("--custom-description", default="", help="Custom YouTube description")
     ap.add_argument("--custom-tags", default="", help="Custom YouTube tags (comma-separated)")
+    ap.add_argument("--ideas-file", default="config/ideas.csv", help="Path to ideas CSV file (optional)")
+    ap.add_argument("--disable-csv-ideas", action="store_true", help="Disable picking ideas from CSV")
     args = ap.parse_args()
 
     channel_info = load_context()
     settings = json.loads((ROOT / args.settings).read_text(encoding="utf-8"))
 
     ch_name = channel_info.get("channel_name", "Kisan bdlega")
+    ideas_csv = ROOT / args.ideas_file
 
     if args.custom_topic.strip():
         topic = args.custom_topic.strip()
         print(f"\n[CUSTOM MODE - {ch_name}] Topic: '{topic}'")
+        # Mark as used in CSV if found to prevent duplication
+        if not args.disable_csv_ideas and ideas_csv.exists():
+            if mark_idea_used(ideas_csv, topic):
+                print(f"[IDEAS CSV] Marked topic '{topic}' as 'used' in {args.ideas_file}")
         topics = [{
             "title": topic,
             "url": "https://krishijagran.com/",
@@ -115,11 +123,29 @@ def main():
             "summary": f"Complete guide and actionable advice on {topic} for Indian farmers."
         }]
     else:
-        print(f"\n[AUTO MODE - {ch_name}] Searching trending farming & agriculture topics in India...")
-        topics = discover_topics(settings)
-        if not topics:
-            raise SystemExit("No research results were found. Check network/RSS or add sources manually.")
-        topic = topics[0]["title"]
+        # Check if CSV ideas file has any pending topics
+        csv_topic = None
+        if not args.disable_csv_ideas and ideas_csv.exists():
+            csv_topic = pick_and_mark_next_idea(ideas_csv)
+
+        if csv_topic:
+            topic = csv_topic
+            print(f"\n[AUTO MODE - {ch_name}] Picked next pending topic from CSV: '{topic}'")
+            print(f"[IDEAS CSV] Marked as 'used' in {args.ideas_file} to avoid duplication.")
+            topics = [{
+                "title": topic,
+                "url": "https://krishijagran.com/",
+                "publisher": f"{ch_name} (Curated Idea from CSV)",
+                "published": datetime.now(timezone.utc).isoformat(),
+                "summary": f"Complete guide and actionable advice on {topic} for Indian farmers."
+            }]
+        else:
+            print(f"\n[AUTO MODE - {ch_name}] No pending ideas found in CSV (or CSV missing).")
+            print(f"[AUTO MODE - {ch_name}] Searching trending farming & agriculture topics in India via RSS & Wikipedia...")
+            topics = discover_topics(settings)
+            if not topics:
+                raise SystemExit("No research results were found. Check network/RSS or add sources manually.")
+            topic = topics[0]["title"]
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out = ROOT / args.output / f"research-{stamp}"

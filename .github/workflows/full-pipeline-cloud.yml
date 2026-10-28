@@ -74,7 +74,7 @@ on:
     - cron: "30 3 * * *" # 09:00 IST daily
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -233,6 +233,18 @@ jobs:
               --custom-title "$CUSTOM_TITLE" \
               --custom-description "$CUSTOM_DESC" \
               --custom-tags "$CUSTOM_TAGS"
+          fi
+
+      - name: Commit updated ideas CSV (mark used)
+        if: always()
+        run: |
+          if [ -f config/ideas.csv ] && git status --porcelain config/ideas.csv | grep -q 'config/ideas.csv'; then
+            echo "[IDEAS CSV] Marking used idea in git repository..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add config/ideas.csv
+            git commit -m "chore: mark used idea in config/ideas.csv [skip ci]"
+            git push || true
           fi
 
       - name: Prepare NotebookLM files

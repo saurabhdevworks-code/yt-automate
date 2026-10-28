@@ -12,15 +12,16 @@ Can be run **100% in the cloud via GitHub Actions (No PC required)** or locally 
 3. [How Each Step Works (Step-by-Step Explanation)](#-how-each-step-works-step-by-step-explanation)
 4. [Step-by-Step Summary Table (Steps | Kya Karega)](#-step-by-step-summary-table-steps--kya-karega)
 5. [Execution Modes (Auto vs Custom)](#-execution-modes-auto-vs-custom)
-6. [Setup & Configuration Guide](#-setup--configuration-guide)
+6. [Optional: Curated Video Ideas from CSV](#-optional-curated-video-ideas-from-csv-configideascsv)
+7. [Setup & Configuration Guide](#-setup--configuration-guide)
    - [A. Google Cloud & YouTube API](#a-google-cloud--youtube-api-setup)
    - [B. NotebookLM Authentication](#b-notebooklm-authentication)
    - [C. GitHub Actions Secrets](#c-github-actions-secrets)
-7. [How to Run](#-how-to-run)
+8. [How to Run](#-how-to-run)
    - [Method 1: 100% Cloud (GitHub Actions)](#method-1-100-cloud-github-actions---recommended)
    - [Method 2: Local PC Execution](#method-2-local-pc-execution)
-8. [Assets & Watermark Customization](#-assets--watermark-customization)
-9. [Project Structure](#-project-structure)
+9. [Assets & Watermark Customization](#-assets--watermark-customization)
+10. [Project Structure](#-project-structure)
 
 ---
 
@@ -40,8 +41,12 @@ flowchart TD
     E --> F["5. YouTube Upload<br>(src.youtube_upload)"]
     
     subgraph S1["Step 1: Research Pack"]
-        B1["RSS Feeds & Wikipedia Scan"] --> B2["Gemini AI Topic Synthesis"]
-        B2 --> B3["Generate research_brief.md, notebooklm_prompt.txt & metadata.json"]
+        B0["Check config/ideas.csv for pending topics"]
+        B1["Fallback: RSS Feeds & Wikipedia Scan"]
+        B2["Gemini AI Topic Synthesis"]
+        B0 --> B2
+        B1 --> B2
+        B2 --> B3["Generate research_brief.md, prompt & metadata.json"]
     end
     
     subgraph S2["Step 2: Video Generation"]
@@ -71,12 +76,14 @@ flowchart TD
 ## 🚀 How Each Step Works (Step-by-Step Explanation)
 
 ### **Step 1: AI Topic Research & Research Pack Generation** (`src/generate_pack.py`)
-- **What it does:** Scans top agricultural and farming RSS feeds (Google News, Krishi Jagran) and Wikipedia topics.
-- **In Auto Mode:** Gemini AI analyzes current trending topics, selects the most engaging subject for Indian farmers/viewers, and creates:
+- **What it does:** Selects a high-impact topic and prepares all resources required by NotebookLM:
+  - **Predefined CSV Ideas (Optional)**: Automatically checks `config/ideas.csv` first for any unused topic. Marks it as `used` with timestamp to avoid duplicates.
+  - **Automatic RSS / Wikipedia Scan**: If no unused idea is found in the CSV, it automatically discovers trending agriculture topics from Google News RSS feeds, Krishi Jagran, and Wikipedia.
+  - **In Custom Mode**: Accepts an explicit custom topic via input (e.g. *Polyhouse Farming Guide*).
+- **Files Created**:
   - `research_brief.md`: Detailed factual brief tailored for NotebookLM ingestion.
   - `notebooklm_prompt.txt`: Optimized prompt directing NotebookLM to create an explainer video overview in Hindi.
   - `metadata.json`: YouTube Title, Description (with timestamps & hashtags), SEO Tags, and Thumbnail catchphrase.
-- **In Custom Mode:** Accepts your custom topic via input (e.g. *Polyhouse Farming Guide*).
 
 ### **Step 2: Google NotebookLM Video Overview Generation** (`src/notebooklm_api_automation.py`)
 - **What it does:** Connects to Google NotebookLM using authenticated session credentials (Master Token or storage state).
@@ -113,7 +120,7 @@ flowchart TD
 
 | Steps | Component / Script | Kya Karega (Summary & Action) | Input / Source | Output File(s) |
 | :---: | :--- | :--- | :--- | :--- |
-| **Step 1** | **AI Topic Research**<br>([`src.generate_pack`](src/generate_pack.py)) | • Google News aur RSS feeds se trending farming/niche topics scan karta hai.<br>• Wikipedia se relevant facts collect karta hai.<br>• Gemini AI se structured research brief, prompt aur SEO metadata create karta hai. | RSS Feeds / Wikipedia / Custom Topic input | • `output/notebooklm_research_brief.md`<br>• `output/notebooklm_prompt.txt`<br>• `output/metadata.json` |
+| **Step 1** | **AI Topic Research**<br>([`src.generate_pack`](src/generate_pack.py)) | • `config/ideas.csv` se next unused topic pick karta hai aur `used` mark karta hai.<br>• Agar CSV na ho ya sab used hon, toh RSS/Wikipedia scan karke trending topic leta hai.<br>• Gemini AI se factual brief, video prompt aur SEO metadata generate karta hai. | `config/ideas.csv` / RSS Feeds / Wikipedia | • `output/notebooklm_research_brief.md`<br>• `output/notebooklm_prompt.txt`<br>• `output/metadata.json` |
 | **Step 2** | **NotebookLM Video Generator**<br>([`src.notebooklm_api_automation`](src/notebooklm_api_automation.py)) | • Google account se secure connect hota hai (permanent token ke zariye).<br>• Notebook banakar sources aur prompt inject karta hai.<br>• Google NotebookLM se cinematic Hindi Video Overview render aur download karta hai. | Research Brief & Prompt files | • `output/notebooklm/notebooklm_video.mp4` |
 | **Step 3** | **Video Post-Processing**<br>([`src.video_processor`](src/video_processor.py)) | • **Auto Outro Trim**: Last 3s cut karke NotebookLM ending outro card hatata hai.<br>• **Watermark Remove**: FFmpeg `delogo` filter se corner watermark completely erase karta hai.<br>• **Custom Logo Overlay**: Agar `assets/images/watermark.*` ho toh use add karta hai; warna bina kisi image ke watermark remove hi rehta hai.<br>• **Intro Attach**: Agar intro URL diya ho toh aage merge karta hai. | Raw Video (`notebooklm_video.mp4`) + optional intro / watermark | • Final Processed Video (`notebooklm_video.mp4`) |
 | **Step 4** | **Hindi Thumbnail Creator**<br>([`src.thumbnail`](src/thumbnail.py)) | • Hindi Devanagari fonts load karta hai.<br>• AI dwara generated catchy thumbnail text aur gradient backdrop ke sath 1280x720 thumbnail design karta hai. | `output/metadata.json` (`thumbnail_text`) + TTF fonts | • `output/thumbnail.jpg` (1280x720) |
@@ -125,12 +132,36 @@ flowchart TD
 
 | Feature | Auto Mode (`mode: auto`) | Custom Mode (`mode: custom`) |
 | :--- | :--- | :--- |
-| **Topic Selection** | Fully automatic via RSS/Wikipedia/Gemini | Custom topic specified by you |
+| **Topic Selection** | `config/ideas.csv` (next pending) → RSS/Wikipedia fallback | Custom topic specified by you |
 | **Outro Trimming** | **Automatically trims last 3 seconds** | Trims only if `custom_trim_start` / `custom_trim_end` provided |
 | **Watermark Removal** | **Active (FFmpeg delogo)** | **Active (FFmpeg delogo)** |
 | **Watermark Image** | Uses `assets/images/watermark.*` if present | Uses `assets/images/watermark.*` or `custom_watermark_url` |
 | **Schedule Support** | Runs daily at 09:00 IST via cron | Triggered manually via `workflow_dispatch` |
 | **YouTube Metadata** | Auto-generated by AI | Can be customized via inputs or auto-generated |
+
+---
+
+## 💡 Optional: Curated Video Ideas from CSV (`config/ideas.csv`)
+
+Aap apne custom topics ko [`config/ideas.csv`](config/ideas.csv) me list kar sakte hain. Jab pipeline chalega, toh woh yahan se line-by-line topic pick karega aur pick hote hi status ko **`used`** mark kar dega taaki **kabhi bhi duplicate video na bane**!
+
+### Key Features:
+1. **No Duplication**: Ek baar topic pick hone ke baad status `used` ho jata hai aur `used_at` timestamp save ho jata hai.
+2. **100% Optional (Auto Fallback)**:
+   - Agar CSV file nahi hai, khali hai, ya sabhi topics `used` ho chuke hain, toh pipeline bina ruke automatically live RSS feeds aur Wikipedia se trending topics pick kar lega!
+   - Agar aap Custom Mode me `--custom-topic` dete hain, toh woh topic use hoga aur CSV me hone par use bhi `used` mark kar diya jayega.
+3. **Cloud & Local Sync**: GitHub Actions cloud run hone par modified `ideas.csv` automatically repo me save ho jata hai taaki next schedule par agla naya idea hi pick ho.
+
+### CSV Format Example:
+```csv
+id,topic,status,used_at,notes
+1,ड्रिप सिंचाई तकनीक और सरकारी सब्सिडी,pending,,Drip irrigation benefits & subsidy
+2,जैविक खाद (वर्मीकंपोस्ट) बनाने की आसान विधि,pending,,Organic vermicompost guide
+3,पीएम किसान सम्मान निधि 2026 ताजा अपडेट,pending,,PM Kisan Yojana benefits
+4,पॉलीहाउस और शेडनेट फार्मिंग से लाखों का मुनाफा,pending,,Protected cultivation guide
+5,सोलर पंप योजना (पीएम कुसुम) कैसे आवेदन करें,pending,,PM Kusum Solar scheme
+```
+- Naya idea add karne ke liye bas aakhri line me `pending` status ke sath topic add karein.
 
 ---
 
@@ -259,6 +290,7 @@ yt-automate/
 │   └── images/                       # Folder for custom watermark image (watermark.png)
 ├── config/
 │   ├── channel_context.json          # Channel persona & context prompt
+│   ├── ideas.csv                     # Predefined video topics queue (auto marks 'used')
 │   └── settings.json                 # Channel configuration & post-processing settings
 ├── scripts/
 │   ├── get_youtube_refresh_token.py  # Local tool to generate YouTube OAuth token
@@ -266,6 +298,7 @@ yt-automate/
 │   └── setup_master_token.py         # Permanent Master Token generator
 ├── src/
 │   ├── generate_pack.py              # AI Research & prompt generator
+│   ├── ideas_manager.py              # CSV ideas queue manager (deduplication)
 │   ├── notebooklm_api_automation.py  # Cloud NotebookLM client
 │   ├── notebooklm_automation.py      # Playwright browser automation
 │   ├── thumbnail.py                  # Hindi thumbnail generator
@@ -273,6 +306,7 @@ yt-automate/
 │   └── youtube_upload.py             # YouTube Data API uploader
 ├── tests/
 │   ├── test_core.py                  # Metadata & cookie tests
+│   ├── test_ideas_manager.py         # Unit tests for ideas CSV handling & deduplication
 │   └── test_video_processor.py       # Unit tests for trim, delogo & watermark detection
 ├── run_local_pipeline.ps1            # Local execution script (Windows PowerShell)
 ├── requirements.txt                  # Python dependencies

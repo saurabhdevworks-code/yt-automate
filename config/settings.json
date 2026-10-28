@@ -29,6 +29,7 @@
     "Baloo"
   ],
   "youtube_category_id": "27",
+  "ideas_csv": "config/ideas.csv",
   "video_processing": {
     "auto_trim_end_seconds": 3.0,
     "watermark_enabled": true,
