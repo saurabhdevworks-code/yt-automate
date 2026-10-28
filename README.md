@@ -9,17 +9,18 @@ Can be run **100% in the cloud via GitHub Actions (No PC required)** or locally 
 ## 📑 Table of Contents
 1. [Overview & Core Rule](#-core-rule)
 2. [Step-by-Step Pipeline Flow](#-step-by-step-pipeline-flow)
-3. [Key Features & Post-Processing](#-key-features--post-processing)
-4. [Execution Modes (Auto vs Custom)](#-execution-modes-auto-vs-custom)
-5. [Setup & Configuration Guide](#-setup--configuration-guide)
+3. [How Each Step Works (Step-by-Step Explanation)](#-how-each-step-works-step-by-step-explanation)
+4. [Step-by-Step Summary Table (Steps | Kya Karega)](#-step-by-step-summary-table-steps--kya-karega)
+5. [Execution Modes (Auto vs Custom)](#-execution-modes-auto-vs-custom)
+6. [Setup & Configuration Guide](#-setup--configuration-guide)
    - [A. Google Cloud & YouTube API](#a-google-cloud--youtube-api-setup)
    - [B. NotebookLM Authentication](#b-notebooklm-authentication)
    - [C. GitHub Actions Secrets](#c-github-actions-secrets)
-6. [How to Run](#-how-to-run)
+7. [How to Run](#-how-to-run)
    - [Method 1: 100% Cloud (GitHub Actions)](#method-1-100-cloud-github-actions---recommended)
    - [Method 2: Local PC Execution](#method-2-local-pc-execution)
-7. [Assets & Watermark Customization](#-assets--watermark-customization)
-8. [Project Structure](#-project-structure)
+8. [Assets & Watermark Customization](#-assets--watermark-customization)
+9. [Project Structure](#-project-structure)
 
 ---
 
@@ -105,6 +106,18 @@ flowchart TD
   - Custom Thumbnail image
 - Defaults to `private` privacy status so you can review before publishing publicly.
 - Outputs the YouTube URL and video ID to `output/upload_result.json`.
+
+---
+
+## 📋 Step-by-Step Summary Table (Steps | Kya Karega)
+
+| Steps | Component / Script | Kya Karega (Summary & Action) | Input / Source | Output File(s) |
+| :---: | :--- | :--- | :--- | :--- |
+| **Step 1** | **AI Topic Research**<br>([`src.generate_pack`](src/generate_pack.py)) | • Google News aur RSS feeds se trending farming/niche topics scan karta hai.<br>• Wikipedia se relevant facts collect karta hai.<br>• Gemini AI se structured research brief, prompt aur SEO metadata create karta hai. | RSS Feeds / Wikipedia / Custom Topic input | • `output/notebooklm_research_brief.md`<br>• `output/notebooklm_prompt.txt`<br>• `output/metadata.json` |
+| **Step 2** | **NotebookLM Video Generator**<br>([`src.notebooklm_api_automation`](src/notebooklm_api_automation.py)) | • Google account se secure connect hota hai (permanent token ke zariye).<br>• Notebook banakar sources aur prompt inject karta hai.<br>• Google NotebookLM se cinematic Hindi Video Overview render aur download karta hai. | Research Brief & Prompt files | • `output/notebooklm/notebooklm_video.mp4` |
+| **Step 3** | **Video Post-Processing**<br>([`src.video_processor`](src/video_processor.py)) | • **Auto Outro Trim**: Last 3s cut karke NotebookLM ending outro card hatata hai.<br>• **Watermark Remove**: FFmpeg `delogo` filter se corner watermark completely erase karta hai.<br>• **Custom Logo Overlay**: Agar `assets/images/watermark.*` ho toh use add karta hai; warna bina kisi image ke watermark remove hi rehta hai.<br>• **Intro Attach**: Agar intro URL diya ho toh aage merge karta hai. | Raw Video (`notebooklm_video.mp4`) + optional intro / watermark | • Final Processed Video (`notebooklm_video.mp4`) |
+| **Step 4** | **Hindi Thumbnail Creator**<br>([`src.thumbnail`](src/thumbnail.py)) | • Hindi Devanagari fonts load karta hai.<br>• AI dwara generated catchy thumbnail text aur gradient backdrop ke sath 1280x720 thumbnail design karta hai. | `output/metadata.json` (`thumbnail_text`) + TTF fonts | • `output/thumbnail.jpg` (1280x720) |
+| **Step 5** | **Automated YouTube Uploader**<br>([`src.youtube_upload`](src/youtube_upload.py)) | • YouTube Data API v3 OAuth se connect karta hai.<br>• Title, Description, Tags, Thumbnail ke sath video YouTube par upload karta hai.<br>• Upload status aur video link JSON me save karta hai. | Processed Video + Thumbnail + Metadata | • Video uploaded to YouTube (Private/Public)<br>• `output/upload_result.json` |
 
 ---
 
