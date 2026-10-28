@@ -34,40 +34,70 @@ Can be run **100% in the cloud via GitHub Actions (No PC required)** or locally 
 
 ```mermaid
 flowchart TD
-    A["⏰ Trigger (Daily Schedule / Manual Dispatch)"] --> B["1. Topic Research & AI Pack Generation<br>(src.generate_pack)"]
-    B --> C["2. Google NotebookLM Automation<br>(src.notebooklm_api_automation)"]
-    C --> D["3. Video Post-Processing Engine<br>(src.video_processor)"]
-    D --> E["4. Hindi Thumbnail Generation<br>(src.thumbnail)"]
-    E --> F["5. YouTube Upload<br>(src.youtube_upload)"]
+    CTX["📁 context/ (1-Stop Channel Control Hub)"]
     
-    subgraph S1["Step 1: Research Pack"]
-        B0["Check context/topics.csv for pending topics"]
-        B1["Fallback: RSS Feeds & Wikipedia Scan"]
-        B2["Gemini AI Topic Synthesis"]
+    subgraph S0["Context & Assets Configuration"]
+        C_TOP["context/topics.csv (Idea Queue)"]
+        C_RUL["context/yt_rules.json (SEO Rules)"]
+        C_CTX["context/channel_context.json (Persona)"]
+        C_TPL["context/thumbnail_templates/ (HTML Templates)"]
+        C_FNT["context/fonts/ (Devanagari Fonts)"]
+        C_WM["context/images/watermark/ (Logo Image)"]
+    end
+    
+    A["⏰ Trigger (Daily 09:00 IST / Manual Dispatch)"] --> S1_BOX["1. Topic Research & AI Pack Generation<br>(src.generate_pack)"]
+    
+    C_TOP --> S1_BOX
+    C_RUL --> S1_BOX
+    C_CTX --> S1_BOX
+    
+    subgraph S1["Step 1: AI Topic & SEO Synthesis"]
+        B0["Pick next 'pending' topic & mark 'used'"]
+        B1["Fallback: RSS News & Wikipedia Scan"]
+        B2["Gemini AI Topic Synthesis (Strictly follows yt_rules.json)"]
         B0 --> B2
         B1 --> B2
         B2 --> B3["Generate research_brief.md, prompt & metadata.json"]
     end
     
-    subgraph S2["Step 2: Video Generation"]
-        C1["Authenticate with Google NotebookLM"] --> C2["Upload Research Sources & Prompt"]
-        C2 --> C3["Generate Video Overview & Download MP4"]
+    S1_BOX --> S2_BOX["2. Google NotebookLM Automation<br>(src.notebooklm_api_automation)"]
+    
+    subgraph S2["Step 2: Video Overview Generation"]
+        NB1["Authenticate with Google Session (Master Token)"]
+        NB2["Create Notebook, Inject Sources & Hindi Prompt"]
+        NB3["Generate NotebookLM Video Overview & Download MP4"]
+        NB1 --> NB2 --> NB3
     end
     
-    subgraph S3["Step 3: Video Post-Processing (FFmpeg)"]
-        D1["Auto Trim: Cuts off final 3s NotebookLM outro"]
-        D2["Watermark Engine: FFmpeg delogo removes corner watermark"]
-        D3["Optional: Overlay context/images/watermark/* or URL image"]
+    S2_BOX --> S3_BOX["3. Video Post-Processing Engine<br>(src.video_processor)"]
+    C_WM -.-> S3_BOX
+    
+    subgraph S3["Step 3: FFmpeg Video Enhancement"]
+        D1["Auto Trim: Cut off final 3s ending card ('Made with NotebookLM')"]
+        D2["Watermark Engine: FFmpeg delogo cleanly erases corner logo"]
+        D3["Branding: Overlay context/images/watermark/* logo if present"]
         D4["Optional: Concatenate custom intro video"]
+        D1 --> D2 --> D3 --> D4
     end
     
-    subgraph S4["Step 4: Thumbnail Creation"]
-        E1["Load Devanagari Fonts from context/fonts/"] --> E2["Render High-CTR 1280x720 Thumbnail"]
+    S3_BOX --> S4_BOX["4. Pro High-CTR AI Thumbnail Creation<br>(src.thumbnail)"]
+    C_TPL --> S4_BOX
+    C_FNT --> S4_BOX
+    
+    subgraph S4["Step 4: AI Visual + Chrome Headless Rendering"]
+        E1["Google Imagen 3 API (via GEMINI_API_KEY) / Pollinations Flux"]
+        E2["Select Format Template (1: Subsidy, 2: Profit, 3: Tech)"]
+        E3["Headless Chrome Screenshot: 1280x720 3D Baloo 2 Typography"]
+        E1 --> E2 --> E3
     end
     
-    subgraph S5["Step 5: YouTube Upload"]
-        F1["YouTube Data API v3 OAuth"] --> F2["Upload Video (Title, Description, Tags, Thumbnail)"]
-        F2 --> F3["Save Link & Result in upload_result.json"]
+    S4_BOX --> S5_BOX["5. Automated YouTube Upload<br>(src.youtube_upload)"]
+    
+    subgraph S5["Step 5: YouTube Publishing"]
+        F1["YouTube Data API v3 OAuth Authentication"]
+        F2["Upload Video: Title, Description, Tags, Thumbnail"]
+        F3["Save Video Link & Details in upload_result.json"]
+        F1 --> F2 --> F3
     end
 ```
 
@@ -150,7 +180,7 @@ Aap apne custom topics ko [`context/topics.csv`](context/topics.csv) me list kar
 2. **100% Optional (Auto Fallback)**:
    - Agar CSV file nahi hai, khali hai, ya sabhi topics `used` ho chuke hain, toh pipeline bina ruke automatically live RSS feeds aur Wikipedia se trending topics pick kar lega!
    - Agar aap Custom Mode me `--custom-topic` dete hain, toh woh topic use hoga aur CSV me hone par use bhi `used` mark kar diya jayega.
-3. **Cloud & Local Sync**: GitHub Actions cloud run hone par modified `ideas.csv` automatically repo me save ho jata hai taaki next schedule par agla naya idea hi pick ho.
+3. **Cloud & Local Sync**: GitHub Actions cloud run hone par modified `context/topics.csv` automatically repo me commit ho jata hai taaki next schedule par agla naya idea hi pick ho.
 
 ### CSV Format Example:
 ```csv
