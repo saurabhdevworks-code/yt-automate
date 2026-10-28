@@ -261,7 +261,7 @@ jobs:
               --output output/notebooklm \
               --timeout-minutes 75
 
-      - name: Process Video (Trim last 3s, Watermark Replacement, Intro & Custom Metadata)
+      - name: Process Video (Trim last 3s, Watermark Removal, Intro & Custom Metadata)
         env:
           MODE: ${{ inputs.mode || 'auto' }}
           INTRO_URL: ${{ inputs.custom_intro_url }}
@@ -306,7 +306,10 @@ jobs:
           ALLOW_PUBLIC_PUBLISH: "true"
           PRIVACY: ${{ inputs.upload_privacy || 'private' }}
         run: |
-          if [ -f output/thumbnail.jpg ]; then
+          if [ -z "$YOUTUBE_CLIENT_ID" ] || [ -z "$YOUTUBE_CLIENT_SECRET" ] || [ -z "$YOUTUBE_REFRESH_TOKEN" ]; then
+            echo "::warning::YouTube credentials (YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REFRESH_TOKEN) not set in GitHub Secrets."
+            echo "Skipping YouTube upload step. Your generated, watermark-free video is ready to download in Artifacts!"
+          elif [ -f output/thumbnail.jpg ]; then
             python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy "$PRIVACY" --thumbnail output/thumbnail.jpg --result output/upload_result.json
           else
             python -m src.youtube_upload --video output/notebooklm/notebooklm_video.mp4 --metadata output/metadata.json --privacy "$PRIVACY" --result output/upload_result.json
