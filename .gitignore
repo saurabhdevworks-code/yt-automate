@@ -13,7 +13,15 @@ output/*
 storage_state.json
 master_token.json
 *.master_token.json
+
 *.png
+*.jpg
+*.jpeg
+!assets/*.png
+!assets/*.jpg
+!assets/*.jpeg
+!assets/*.webp
+!assets/**/*.png
 
 .*.lock
 *.context.json

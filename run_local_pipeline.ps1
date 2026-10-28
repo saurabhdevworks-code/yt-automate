@@ -20,7 +20,7 @@ if (Test-Path ".env") {
 }
 
 # 1. Generate Research Pack
-Write-Host "`n[1/4] Generating AI Research Pack..." -ForegroundColor Yellow
+Write-Host "`n[1/5] Generating AI Research Pack..." -ForegroundColor Yellow
 python -m src.generate_pack --settings config/settings.json --output output
 
 # 2. Find latest research pack
@@ -37,7 +37,7 @@ Copy-Item "$($latest.FullName)\notebooklm_prompt.txt" "output\notebooklm_prompt.
 Copy-Item "$($latest.FullName)\metadata.json" "output\metadata.json" -Force
 
 # 4. Run NotebookLM Automation with Local Profile
-Write-Host "`n[2/4] Automating Google NotebookLM Video Overview..." -ForegroundColor Yellow
+Write-Host "`n[2/5] Automating Google NotebookLM Video Overview..." -ForegroundColor Yellow
 $profilePath = "C:\notebooklm-playwright-profile"
 python -m src.notebooklm_automation `
     --sources "output\notebooklm_research_brief.md" `
@@ -46,21 +46,32 @@ python -m src.notebooklm_automation `
     --output "output\notebooklm" `
     --timeout-minutes 75
 
-# 5. Generate Thumbnail (if font exists)
+# 5. Post-Process Video (Auto-trim last 3s outro & hide NotebookLM watermark)
+$videoFile = "output\notebooklm\notebooklm_video.mp4"
+if (Test-Path $videoFile) {
+    Write-Host "`n[3/5] Post-Processing Video (Trimming 3s outro & replacing watermark)..." -ForegroundColor Yellow
+    python -m src.video_processor `
+        --video "$videoFile" `
+        --mode auto `
+        --metadata "output\metadata.json"
+} else {
+    Write-Host "`n[WARNING] Video file not found at $videoFile to post-process." -ForegroundColor Yellow
+}
+
+# 6. Generate Thumbnail (if font exists)
 if (Test-Path "assets\fonts\NotoSansDevanagari-Bold.ttf") {
-    Write-Host "`n[3/4] Generating Thumbnail..." -ForegroundColor Yellow
+    Write-Host "`n[4/5] Generating Thumbnail..." -ForegroundColor Yellow
     $meta = Get-Content "output\metadata.json" | ConvertFrom-Json
     $thumbText = $meta.thumbnail_text
     if ($thumbText) {
         python -m src.thumbnail --text "$thumbText" --output "output\thumbnail.jpg" --font "assets\fonts\NotoSansDevanagari-Bold.ttf"
     }
 } else {
-    Write-Host "`n[3/4] Skipping thumbnail (NotoSansDevanagari font not installed)." -ForegroundColor Gray
+    Write-Host "`n[4/5] Skipping thumbnail (NotoSansDevanagari font not installed)." -ForegroundColor Gray
 }
 
-# 6. Upload to YouTube
-Write-Host "`n[4/4] Checking YouTube Upload..." -ForegroundColor Yellow
-$videoFile = "output\notebooklm\notebooklm_video.mp4"
+# 7. Upload to YouTube
+Write-Host "`n[5/5] Checking YouTube Upload..." -ForegroundColor Yellow
 if (Test-Path $videoFile) {
     if ($env:YOUTUBE_CLIENT_ID -and $env:YOUTUBE_CLIENT_SECRET -and $env:YOUTUBE_REFRESH_TOKEN) {
         Write-Host "Uploading video to YouTube privately..." -ForegroundColor Cyan

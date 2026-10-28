@@ -49,6 +49,11 @@ jobs:
           if (-not $env:NOTEBOOKLM_PROFILE) { $env:NOTEBOOKLM_PROFILE = "C:\notebooklm-playwright-profile" }
           py -m src.notebooklm_automation --sources "output\notebooklm_research_brief.md" --prompt "output\notebooklm_prompt.txt" --profile "$env:NOTEBOOKLM_PROFILE" --output "output\notebooklm" --timeout-minutes 75
 
+      - name: Post-Process Video (Trim last 3s & Replace NotebookLM Watermark)
+        shell: powershell
+        run: |
+          py -m src.video_processor --video "output\notebooklm\notebooklm_video.mp4" --mode auto --metadata "output\metadata.json"
+
       - name: Create thumbnail when Devanagari font is configured
         shell: powershell
         run: |

@@ -22,7 +22,12 @@ on:
         type: string
         default: ''
       custom_trim_end:
-        description: '[Custom] Trim video end timestamp (e.g. 00:05:00, leave blank for no trim)'
+        description: '[Custom] Trim video end timestamp (e.g. 00:05:00, leave blank for auto 3s trim)'
+        required: false
+        type: string
+        default: ''
+      custom_watermark_url:
+        description: '[Watermark] Custom logo/watermark image link to replace NotebookLM watermark (Google Drive / Direct URL, optional)'
         required: false
         type: string
         default: ''
@@ -256,11 +261,13 @@ jobs:
               --output output/notebooklm \
               --timeout-minutes 75
 
-      - name: Process Video (Trim, Intro, Thumbnail & Custom Metadata)
+      - name: Process Video (Trim last 3s, Watermark Replacement, Intro & Custom Metadata)
         env:
+          MODE: ${{ inputs.mode || 'auto' }}
           INTRO_URL: ${{ inputs.custom_intro_url }}
           TRIM_START: ${{ inputs.custom_trim_start }}
           TRIM_END: ${{ inputs.custom_trim_end }}
+          WATERMARK_URL: ${{ inputs.custom_watermark_url }}
           CUSTOM_THUMB: ${{ inputs.custom_thumbnail_url }}
           CUSTOM_TITLE: ${{ inputs.custom_yt_title }}
           CUSTOM_DESC: ${{ inputs.custom_yt_description }}
@@ -268,9 +275,11 @@ jobs:
         run: |
           python -m src.video_processor \
             --video output/notebooklm/notebooklm_video.mp4 \
+            --mode "$MODE" \
             --intro-url "$INTRO_URL" \
             --trim-start "$TRIM_START" \
             --trim-end "$TRIM_END" \
+            --watermark-url "$WATERMARK_URL" \
             --custom-thumbnail-url "$CUSTOM_THUMB" \
             --thumbnail-out output/thumbnail.jpg \
             --metadata output/metadata.json \
