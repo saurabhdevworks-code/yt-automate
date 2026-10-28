@@ -2,7 +2,10 @@
 Handles:
 1. Google Drive / Direct link downloading for Intro video, Watermark & Thumbnail.
 2. Trimming video start/end using ffmpeg (Auto mode trims the last 3s NotebookLM outro).
-3. Hiding/Replacing NotebookLM watermark with custom image from assets folder or upload URL.
+3. Watermark handling:
+   - Always removes the NotebookLM watermark using FFmpeg delogo.
+   - If an image exists in assets/images/watermark.* (or provided via upload/URL), adds that image in its place.
+   - If no image exists, cleanly removes the watermark without adding any replacement image.
 4. Adding intro video seamlessly to NotebookLM generated video.
 5. Overriding YouTube metadata (Title, Description, Tags).
 """
@@ -165,7 +168,9 @@ def trim_video(input_video: Path, output_video: Path, start: str = "", end: str 
 
 
 def find_watermark_image(custom_path: str = "", base_dir: Path = None) -> Path | None:
-    """Find watermark/logo image from custom path, assets directory, or project root."""
+    """Find watermark image in assets/images/watermark.* or custom path.
+    Only returns an image path if one exists, otherwise returns None so watermark is cleanly removed.
+    """
     if base_dir is None:
         base_dir = Path(".").resolve()
 
@@ -174,34 +179,43 @@ def find_watermark_image(custom_path: str = "", base_dir: Path = None) -> Path |
         p = Path(custom_path)
         if not p.is_absolute():
             p = base_dir / p
-        if p.exists() and p.is_file():
+        if p.exists() and p.is_file() and p.stat().st_size > 0:
             return p.resolve()
 
-    # 2. Check candidate locations in assets/
-    candidate_names = [
-        "watermark.png", "watermark.jpg", "watermark.jpeg", "watermark.webp",
-        "logo.png", "logo.jpg", "logo.jpeg", "logo.webp",
-        "channel_logo.png", "channel_logo.jpg", "badge.png",
-        "channel_watermark.png"
-    ]
-    assets_dir = base_dir / "assets"
-    if assets_dir.exists():
-        for name in candidate_names:
-            candidate = assets_dir / name
+    # 2. Check assets/images/ folder for watermark.*
+    images_dir = base_dir / "assets" / "images"
+    if images_dir.exists():
+        # Check standard image extensions
+        for ext in [".png", ".jpg", ".jpeg", ".webp", ".PNG", ".JPG", ".JPEG", ".WEBP"]:
+            candidate = images_dir / f"watermark{ext}"
             if candidate.exists() and candidate.is_file() and candidate.stat().st_size > 0:
                 return candidate.resolve()
 
-    # 3. Check config/settings.json for configured watermark path
+        # Check any file starting with 'watermark' inside assets/images/
+        for candidate in images_dir.iterdir():
+            if candidate.is_file() and candidate.stem.lower() == "watermark" and candidate.stat().st_size > 0:
+                return candidate.resolve()
+
+    # 3. Check assets/ directory directly for watermark.* (backward compatibility)
+    assets_dir = base_dir / "assets"
+    if assets_dir.exists():
+        for ext in [".png", ".jpg", ".jpeg", ".webp"]:
+            candidate = assets_dir / f"watermark{ext}"
+            if candidate.exists() and candidate.is_file() and candidate.stat().st_size > 0:
+                return candidate.resolve()
+
+    # 4. Check config/settings.json if watermark_image is explicitly specified
     settings_file = base_dir / "config" / "settings.json"
     if settings_file.exists():
         try:
             settings = json.loads(settings_file.read_text(encoding="utf-8"))
-            cfg_path = settings.get("watermark_image") or settings.get("watermark", {}).get("image_path")
+            vp = settings.get("video_processing", {})
+            cfg_path = vp.get("watermark_image") or settings.get("watermark_image")
             if cfg_path:
                 cp = Path(cfg_path)
                 if not cp.is_absolute():
                     cp = base_dir / cp
-                if cp.exists() and cp.is_file():
+                if cp.exists() and cp.is_file() and cp.stat().st_size > 0:
                     return cp.resolve()
         except Exception:
             pass
@@ -215,10 +229,9 @@ def prepare_watermark_badge(
     target_h: int,
     output_path: Path
 ) -> Path:
-    """Prepare and optimize watermark badge using Pillow to completely obscure the NotebookLM watermark.
-    
+    """Prepare and optimize watermark badge using Pillow.
     If the image has transparency, composites it over an opaque dark rounded pill
-    so that the underlying 'NotebookLM' text/logo cannot peek through.
+    so that the underlying watermark area is 100% blocked and covered.
     """
     try:
         from PIL import Image, ImageDraw
@@ -227,7 +240,6 @@ def prepare_watermark_badge(
             img = img.convert("RGBA")
             orig_w, orig_h = img.size
 
-            # Compute scaling to fit comfortably within target bounding box with padding
             pad_x = max(10, int(target_w * 0.06))
             pad_y = max(6, int(target_h * 0.08))
             avail_w = max(10, target_w - (pad_x * 2))
@@ -240,13 +252,11 @@ def prepare_watermark_badge(
             resized_img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
             # Create solid badge base canvas (Opaque dark charcoal background)
-            # This guarantees 100% masking of the NotebookLM watermark beneath
             badge = Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
             draw = ImageDraw.Draw(badge)
 
             # Draw rounded pill background
             radius = min(target_h // 2, 14)
-            # Primary pill background: dark elegant slate (#0f172a with 96% opacity)
             draw.rounded_rectangle(
                 [(0, 0), (target_w - 1, target_h - 1)],
                 radius=radius,
@@ -269,36 +279,45 @@ def prepare_watermark_badge(
         return output_path
 
 
-def apply_watermark_overlay(
+def remove_or_replace_watermark(
     input_video: Path,
-    watermark_image: Path,
     output_video: Path,
+    watermark_image: Path = None,
     position: str = "bottom-right",
     margin_x: int = None,
     margin_y: int = None,
     work_dir: Path = None
 ):
-    """Overlay replacement image on video using ffmpeg, covering NotebookLM watermark."""
-    print(f"\n[WATERMARK] Covering NotebookLM watermark with custom image: {watermark_image.name}")
+    """Remove NotebookLM watermark using FFmpeg delogo.
+    - If watermark_image is provided: removes watermark with delogo AND overlays custom image.
+    - If watermark_image is None: removes watermark with delogo cleanly without adding any image.
+    """
     vid_w, vid_h = get_video_dimensions(input_video)
-    print(f"[WATERMARK] Detected video resolution: {vid_w}x{vid_h}")
+    print(f"\n[WATERMARK] Detected video resolution: {vid_w}x{vid_h}")
 
-    # NotebookLM watermark spans roughly 14% width and 6.5% height in bottom-right
-    target_w = max(240, int(vid_w * 0.155))
-    target_h = max(60, int(vid_h * 0.068))
-
+    # NotebookLM watermark spans roughly 15.5% width and 7% height in bottom-right corner
     if margin_x is None:
-        margin_x = max(18, int(vid_w * 0.015))
+        margin_x = max(16, int(vid_w * 0.015))
     if margin_y is None:
-        margin_y = max(18, int(vid_h * 0.022))
+        margin_y = max(16, int(vid_h * 0.022))
+
+    box_w = max(180, int(vid_w * 0.155))
+    box_h = max(50, int(vid_h * 0.07))
+
+    x = max(0, vid_w - box_w - margin_x)
+    y = max(0, vid_h - box_h - margin_y)
+
+    # Ensure box bounds do not exceed video resolution
+    if x + box_w > vid_w:
+        box_w = vid_w - x
+    if y + box_h > vid_h:
+        box_h = vid_h - y
+
+    delogo_filter = f"delogo=x={x}:y={y}:w={box_w}:h={box_h}"
 
     if work_dir is None:
         work_dir = output_video.parent
 
-    prepared_badge = work_dir / "prepared_watermark_badge.png"
-    badge_path = prepare_watermark_badge(watermark_image, target_w, target_h, prepared_badge)
-
-    # Position coordinates formula
     pos = position.lower()
     if pos == "bottom-right":
         overlay_coord = f"W-w-{margin_x}:H-h-{margin_y}"
@@ -311,25 +330,68 @@ def apply_watermark_overlay(
     else:
         overlay_coord = f"W-w-{margin_x}:H-h-{margin_y}"
 
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", str(input_video),
-        "-i", str(badge_path),
-        "-filter_complex", f"[0:v][1:v]overlay={overlay_coord}[v]",
-        "-map", "[v]",
-        "-map", "0:a?",
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-c:a", "copy",
-        str(output_video)
-    ]
-    print(f"[WATERMARK] Running ffmpeg overlay at [{overlay_coord}] (Size: {target_w}x{target_h})...")
+    if watermark_image and watermark_image.exists():
+        # Case A: Image present in assets/images/watermark.* or URL
+        # Remove original watermark via delogo AND overlay custom image on top
+        print(f"[WATERMARK] Custom image detected at: {watermark_image}")
+        print(f"[WATERMARK] Removing watermark (delogo) and adding custom replacement image...")
+        prepared_badge = work_dir / "prepared_watermark_badge.png"
+        badge_path = prepare_watermark_badge(watermark_image, box_w, box_h, prepared_badge)
+
+        filter_complex = f"[0:v]{delogo_filter}[v0];[v0][1:v]overlay={overlay_coord}[v]"
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(input_video),
+            "-i", str(badge_path),
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-c:a", "copy",
+            str(output_video)
+        ]
+    else:
+        # Case B: No image found -> Just remove the watermark cleanly with delogo
+        print(f"[WATERMARK] No replacement image in assets/images/watermark. Removing watermark cleanly using delogo at (x={x}, y={y}, w={box_w}, h={box_h})...")
+        filter_complex = f"[0:v]{delogo_filter}[v]"
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(input_video),
+            "-filter_complex", filter_complex,
+            "-map", "[v]",
+            "-map", "0:a?",
+            "-c:v", "libx264",
+            "-preset", "fast",
+            "-c:a", "copy",
+            str(output_video)
+        ]
+
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        print(f"[WATERMARK ERROR] ffmpeg overlay failed:\n{res.stderr}", file=sys.stderr)
-        raise RuntimeError("Failed to overlay watermark image on video")
+        print(f"[WATERMARK WARNING] FFmpeg delogo command returned error:\n{res.stderr}", file=sys.stderr)
+        # Fallback if delogo filter is missing or rejected
+        if watermark_image and watermark_image.exists():
+            print("[WATERMARK] Attempting direct overlay fallback...")
+            fallback_cmd = [
+                "ffmpeg", "-y",
+                "-i", str(input_video),
+                "-i", str(badge_path),
+                "-filter_complex", f"[0:v][1:v]overlay={overlay_coord}[v]",
+                "-map", "[v]",
+                "-map", "0:a?",
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-c:a", "copy",
+                str(output_video)
+            ]
+            fallback_res = subprocess.run(fallback_cmd, capture_output=True, text=True)
+            if fallback_res.returncode == 0:
+                print(f"[WATERMARK] Succeeded with direct overlay -> {output_video}")
+                return
+        raise RuntimeError("Failed to remove/replace watermark")
 
-    print(f"[WATERMARK] Successfully hid watermark -> {output_video} ({output_video.stat().st_size:,} bytes)")
+    print(f"[WATERMARK] Succeeded -> {output_video} ({output_video.stat().st_size:,} bytes)")
 
 
 def concat_intro_video(intro_video: Path, main_video: Path, output_video: Path):
@@ -387,16 +449,16 @@ def concat_intro_video(intro_video: Path, main_video: Path, output_video: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Process video: trimming, watermark replacement, intro, thumbnail, metadata")
+    parser = argparse.ArgumentParser(description="Process video: trimming, watermark removal/replacement, intro, thumbnail, metadata")
     parser.add_argument("--video", required=True, help="Main NotebookLM video path")
     parser.add_argument("--mode", default="auto", choices=["auto", "custom"], help="Execution mode (auto or custom)")
     parser.add_argument("--trim-last-seconds", type=float, default=3.0, help="Seconds to trim from end in auto mode (default: 3.0)")
     parser.add_argument("--trim-start", default="", help="Trim start timestamp (seconds or HH:MM:SS)")
     parser.add_argument("--trim-end", default="", help="Trim end timestamp (seconds or HH:MM:SS)")
-    parser.add_argument("--watermark-image", default="", help="Path to watermark/logo image to hide NotebookLM watermark")
+    parser.add_argument("--watermark-image", default="", help="Path to watermark/logo image")
     parser.add_argument("--watermark-url", default="", help="Watermark image link (Google Drive / Direct URL)")
     parser.add_argument("--watermark-position", default="bottom-right", choices=["bottom-right", "bottom-left", "top-right", "top-left"], help="Watermark placement position")
-    parser.add_argument("--disable-watermark", action="store_true", help="Disable watermark hiding/replacement")
+    parser.add_argument("--disable-watermark", action="store_true", help="Disable watermark removal/replacement")
     parser.add_argument("--intro-url", default="", help="Intro video link (Google Drive / direct URL)")
     parser.add_argument("--custom-thumbnail-url", default="", help="Custom thumbnail link")
     parser.add_argument("--thumbnail-out", default="output/thumbnail.jpg", help="Output thumbnail path")
@@ -441,9 +503,11 @@ def main():
             print(f"[WARNING] Trimming failed: {e}. Proceeding with current video.")
 
     # =========================================================================
-    # 2. Watermark Replacement (Applied in BOTH auto & custom modes)
-    # Replaces/hides NotebookLM watermark in bottom-right corner with an image
-    # from uploaded URL or assets/ folder.
+    # 2. Watermark Removal & Replacement (Applied in BOTH auto & custom modes)
+    # - Watermark is removed using FFmpeg delogo.
+    # - If an image exists in assets/images/watermark.* (or via upload/URL),
+    #   it will be added in place of the removed watermark.
+    # - Else, the watermark is cleanly removed without adding any replacement image.
     # =========================================================================
     if not args.disable_watermark:
         watermark_img_path = None
@@ -454,25 +518,22 @@ def main():
             if download_file(args.watermark_url.strip(), downloaded_wm):
                 watermark_img_path = downloaded_wm
 
-        # Priority B: Use local image path or search assets folder
+        # Priority B: Check assets/images/watermark.* or custom path
         if not watermark_img_path:
             watermark_img_path = find_watermark_image(args.watermark_image.strip())
 
-        if watermark_img_path and watermark_img_path.exists():
-            watermarked_video = work_dir / "watermarked_temp.mp4"
-            try:
-                apply_watermark_overlay(
-                    input_video=current_video,
-                    watermark_image=watermark_img_path,
-                    output_video=watermarked_video,
-                    position=args.watermark_position,
-                    work_dir=work_dir
-                )
-                current_video = watermarked_video
-            except Exception as e:
-                print(f"[WARNING] Could not apply watermark overlay: {e}. Keeping video as is.")
-        else:
-            print("\n[WATERMARK] No watermark replacement image found in assets/ or via URL; keeping original video.")
+        watermarked_video = work_dir / "watermark_processed.mp4"
+        try:
+            remove_or_replace_watermark(
+                input_video=current_video,
+                output_video=watermarked_video,
+                watermark_image=watermark_img_path,
+                position=args.watermark_position,
+                work_dir=work_dir
+            )
+            current_video = watermarked_video
+        except Exception as e:
+            print(f"[WARNING] Watermark processing failed: {e}. Keeping video as is.")
 
     # =========================================================================
     # 3. Add Intro Video (if requested)

@@ -22,6 +22,11 @@ master_token.json
 !assets/*.jpeg
 !assets/*.webp
 !assets/**/*.png
+!assets/**/*.jpg
+!assets/**/*.jpeg
+!assets/**/*.webp
+!assets/images/*
+!assets/images/**/*
 
 .*.lock
 *.context.json

@@ -32,7 +32,7 @@
   "video_processing": {
     "auto_trim_end_seconds": 3.0,
     "watermark_enabled": true,
-    "watermark_image": "assets/watermark.png",
+    "watermark_images_dir": "assets/images",
     "watermark_position": "bottom-right",
     "watermark_margin_x": 25,
     "watermark_margin_y": 25
