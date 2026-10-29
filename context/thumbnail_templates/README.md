@@ -1,21 +1,26 @@
-# AI Thumbnail Prompt Templates
+# High-CTR YouTube Thumbnail Prompt Templates
 
-These templates are used to generate full high-CTR YouTube thumbnails using AI image generation (Google Imagen 3 via Gemini API / Pollinations Flux).
+These templates are used by `src/thumbnail.py` to generate ultra high-CTR, cinematic YouTube thumbnails using AI image generation (Google Imagen 3 via Gemini API / Pollinations Flux).
 
-## Available Templates
-- `template1_scheme.txt`: Government Schemes, Subsidies, PM Kisan, Yojana.
-- `template2_profit.txt`: High-Profit Cash Crops, Vermicompost, Polyhouse Farming.
-- `template3_tech.txt`: Modern Technology, Smart Farming, Drones, Drip Irrigation.
-- `template4_split.txt`: Split-Screen Before vs After / Traditional vs Modern comparison.
-- `template5_bold.txt`: Breaking News, Urgent Alerts, High Emotion viral thumbnails.
+## Templates List
+- **`template1.txt`**: **The Shocking Secret & Breakthrough Formula** (Shocked expressive farmer, game-changing discovery, high viral click-through rate).
+- **`template2.txt`**: **The Bumper Profit & Wealth Formula** (Prosperous farmer, giant fresh harvest, wealth and abundance hook).
+- **`template3.txt`**: **The Official Government Scheme & Subsidy Formula** (Authoritative, official certified documents with gold seal, trust hook).
+- **`template4.txt`**: **The Dramatic Split-Screen Formula** (Before vs After / Old struggling farming vs Modern profitable farming).
+- **`template5.txt`**: **The Smart Modern Tech & Future Farming Formula** (Smart tablet, precision drip irrigation, drone flying at sunset).
 
-## Dynamic Placeholders
-You can use the following variables inside any prompt template:
-- `{topic}`: The video topic (e.g., "ड्रिप सिंचाई तकनीक और सरकारी सब्सिडी")
-- `{headline}` / `{title}`: Video title or headline
-- `{highlight}`: Punchy high-CTR hook / benefit
-- `{channel_name}`: Channel name (default: "Kisan bdlega")
-- `{style_notes}`: Additional lighting or composition guidelines
+## Automatic Random Selection
+On each automated run, `src/thumbnail.py` automatically picks a **random template** from `template1.txt` to `template5.txt` to keep the channel's video thumbnails fresh and diverse!
 
-## How to Add New Templates
-Create a new file like `template6_organic.txt` or `template7_tractor.txt` in this folder and write your custom prompt. The generator will automatically detect and match it!
+You can also force a specific template using:
+```bash
+python -m src.thumbnail --template template1
+python -m src.thumbnail --template template2
+```
+
+## Available Variables
+- `{topic}`: The video topic
+- `{channel_name}`: "Kisan bdlega"
+- `{headline}`: Title or punchline
+- `{highlight}`: Catchy text hook
+- `{style_notes}`: Contextual style details

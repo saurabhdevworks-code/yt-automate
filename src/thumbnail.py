@@ -10,6 +10,7 @@ Creates world-class 1280x720 thumbnails for Indian Agriculture channels:
    with pure PIL drawing fallback if Chrome is not installed.
 """
 import argparse
+import random
 import base64
 import json
 import os
@@ -152,48 +153,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
-def resolve_prompt_template(template_name: str = None, fmt_type: str = "scheme") -> str | None:
-    """Resolve and load AI Prompt template from context/thumbnail_templates/."""
+def resolve_prompt_template(template_name: str = None, fmt_type: str = None) -> tuple[str, str] | tuple[None, None]:
+    """Resolve AI Prompt template. If template_name is not provided, picks a RANDOM template from context/thumbnail_templates/."""
     templates_dirs = [
         ROOT / "context" / "thumbnail_templates",
         ROOT / "Context" / "thumbnail_templates"
     ]
 
-    # 1. If explicit template requested (e.g. template1, template2, template1_scheme)
-    if template_name:
-        req = str(template_name).strip().lower()
-        for tdir in templates_dirs:
-            if tdir.is_dir():
-                for ext in [".txt", ".prompt"]:
-                    for p in tdir.glob(f"*{ext}"):
-                        if req == p.stem.lower() or req in p.stem.lower():
-                            try:
-                                print(f"[THUMBNAIL] Using AI Prompt template from {p.name}")
-                                return p.read_text(encoding="utf-8").strip()
-                            except Exception:
-                                pass
-
-    # 2. Match based on format type
-    target_map = {
-        "scheme": ["template1_scheme.txt", "template1.txt", "scheme.txt"],
-        "profit": ["template2_profit.txt", "template2.txt", "profit.txt"],
-        "tech": ["template3_tech.txt", "template3.txt", "tech.txt"],
-        "split": ["template4_split.txt", "template4.txt", "split.txt"],
-        "bold": ["template5_bold.txt", "template5.txt", "bold.txt"],
-    }
-    candidates = target_map.get(fmt_type, ["template1_scheme.txt"])
+    all_txt_templates = []
     for tdir in templates_dirs:
         if tdir.is_dir():
-            for c in candidates:
-                p = tdir / c
+            for p in sorted(tdir.glob("template*.txt")):
                 if p.is_file():
-                    try:
-                        print(f"[THUMBNAIL] Using AI Prompt template from {p.name}")
-                        return p.read_text(encoding="utf-8").strip()
-                    except Exception:
-                        pass
+                    all_txt_templates.append(p)
 
-    return None
+    # 1. If explicit template requested (e.g. template1, template2, template5)
+    if template_name and template_name.lower() != "random":
+        req = str(template_name).strip().lower()
+        for p in all_txt_templates:
+            if req == p.stem.lower() or req in p.stem.lower():
+                try:
+                    print(f"[THUMBNAIL] Using specified AI template: {p.name}")
+                    return p.read_text(encoding="utf-8").strip(), p.stem
+                except Exception:
+                    pass
+
+    # 2. Pick a RANDOM template from available templates (template1.txt to template5.txt)
+    if all_txt_templates:
+        chosen = random.choice(all_txt_templates)
+        print(f"[THUMBNAIL] Randomly selected High-CTR template: {chosen.name}")
+        return chosen.read_text(encoding="utf-8").strip(), chosen.stem
+
+    return None, None
 
 
 def resolve_template_html(template_name: str = None, fmt_type: str = "scheme") -> str:
@@ -512,7 +503,7 @@ def make_thumbnail(
     # B. Imagen 3 via GEMINI_API_KEY
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     # Resolve AI Prompt Template from context/thumbnail_templates/
-    prompt_tpl = resolve_prompt_template(template_name=template, fmt_type=fmt_type)
+    prompt_tpl, chosen_template_name = resolve_prompt_template(template_name=template, fmt_type=fmt_type)
     topic_str = meta.get("topic") or meta.get("title") or text or "Indian Agriculture"
     if prompt_tpl:
         img_prompt = prompt_tpl.replace("{topic}", str(topic_str))\
