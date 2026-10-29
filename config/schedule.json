@@ -3,12 +3,6 @@
   "enabled": true,
   "privacy": "private",
   "_time_format_info": "24-Hour Format (HH:MM) - Indian Standard Time (IST)",
-  "_time_format_examples": {
-    "Morning (9:00 AM)": "09:00",
-    "Afternoon (1:30 PM)": "13:30",
-    "Evening (6:00 PM)": "18:00",
-    "Night (9:00 PM)": "21:00"
-  },
   "times_ist": [
     "09:00"
   ]
