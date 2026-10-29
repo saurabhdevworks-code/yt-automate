@@ -22,6 +22,11 @@ import urllib.request
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 W, H = 1280, 720
 ROOT = Path(__file__).resolve().parents[1]
 FONTS_DIR = ROOT / "context" / "fonts" if (ROOT / "context" / "fonts").is_dir() else (ROOT / "assets" / "fonts")
@@ -145,6 +150,50 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
 </body>
 </html>"""
+
+
+def resolve_prompt_template(template_name: str = None, fmt_type: str = "scheme") -> str | None:
+    """Resolve and load AI Prompt template from context/thumbnail_templates/."""
+    templates_dirs = [
+        ROOT / "context" / "thumbnail_templates",
+        ROOT / "Context" / "thumbnail_templates"
+    ]
+
+    # 1. If explicit template requested (e.g. template1, template2, template1_scheme)
+    if template_name:
+        req = str(template_name).strip().lower()
+        for tdir in templates_dirs:
+            if tdir.is_dir():
+                for ext in [".txt", ".prompt"]:
+                    for p in tdir.glob(f"*{ext}"):
+                        if req == p.stem.lower() or req in p.stem.lower():
+                            try:
+                                print(f"[THUMBNAIL] Using AI Prompt template from {p.name}")
+                                return p.read_text(encoding="utf-8").strip()
+                            except Exception:
+                                pass
+
+    # 2. Match based on format type
+    target_map = {
+        "scheme": ["template1_scheme.txt", "template1.txt", "scheme.txt"],
+        "profit": ["template2_profit.txt", "template2.txt", "profit.txt"],
+        "tech": ["template3_tech.txt", "template3.txt", "tech.txt"],
+        "split": ["template4_split.txt", "template4.txt", "split.txt"],
+        "bold": ["template5_bold.txt", "template5.txt", "bold.txt"],
+    }
+    candidates = target_map.get(fmt_type, ["template1_scheme.txt"])
+    for tdir in templates_dirs:
+        if tdir.is_dir():
+            for c in candidates:
+                p = tdir / c
+                if p.is_file():
+                    try:
+                        print(f"[THUMBNAIL] Using AI Prompt template from {p.name}")
+                        return p.read_text(encoding="utf-8").strip()
+                    except Exception:
+                        pass
+
+    return None
 
 
 def resolve_template_html(template_name: str = None, fmt_type: str = "scheme") -> str:
@@ -281,14 +330,21 @@ def generate_imagen3_background(prompt: str, api_key: str, out_path: Path) -> bo
 
 
 def generate_pollinations_background(prompt: str, out_path: Path) -> bool:
-    """Fallback 1: Free Pollinations Flux image generator."""
+    """Free Pollinations Flux AI thumbnail generator."""
     try:
-        encoded = urllib.parse.quote(prompt)
-        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=720&model=flux&nologo=true&seed=42"
-        urllib.request.urlretrieve(url, str(out_path))
-        if out_path.exists() and out_path.stat().st_size > 10000:
-            print(f"[POLLINATIONS] Successfully fetched background: {out_path}")
+        import requests
+        clean_prompt = prompt.replace("\n", " ").strip()[:500]
+        encoded = urllib.parse.quote(clean_prompt)
+        url = f"https://image.pollinations.ai/prompt/{encoded}?width=1280&height=720&model=flux&nologo=true"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        res = requests.get(url, headers=headers, timeout=50)
+        if res.status_code == 200 and len(res.content) > 10000:
+            out_path.write_bytes(res.content)
+            print(f"[POLLINATIONS] Successfully generated AI thumbnail: {out_path} ({len(res.content):,} bytes)")
             return True
+        print(f"[POLLINATIONS] Status {res.status_code}: {res.text[:100]}")
     except Exception as exc:
         print(f"[POLLINATIONS] Warning: Pollinations fetch failed: {exc}")
     return False
@@ -359,7 +415,8 @@ def make_thumbnail(
     custom_bg: str = None,
     text: str = None,
     channel_name: str = "Kisan bdlega",
-    template: str = None
+    template: str = None,
+    mode: str = "ai"
 ) -> str:
     """Main entrypoint: generates a pro high-CTR YouTube thumbnail."""
     out_path = Path(output).resolve()
@@ -454,7 +511,20 @@ def make_thumbnail(
 
     # B. Imagen 3 via GEMINI_API_KEY
     gemini_key = os.getenv("GEMINI_API_KEY", "")
-    img_prompt = meta.get("thumbnail_image_prompt") or default_prompt
+    # Resolve AI Prompt Template from context/thumbnail_templates/
+    prompt_tpl = resolve_prompt_template(template_name=template, fmt_type=fmt_type)
+    topic_str = meta.get("topic") or meta.get("title") or text or "Indian Agriculture"
+    if prompt_tpl:
+        img_prompt = prompt_tpl.replace("{topic}", str(topic_str))\
+                               .replace("{headline}", str(default_line1))\
+                               .replace("{title}", str(topic_str))\
+                               .replace("{highlight}", str(default_highlight))\
+                               .replace("{benefit}", str(default_benefit))\
+                               .replace("{channel_name}", str(channel_name))\
+                               .replace("{style_notes}", str(meta.get("thumbnail_image_prompt") or ""))
+        print(f"[THUMBNAIL] Using AI Prompt Template for '{fmt_type}': {img_prompt[:130]}...")
+    else:
+        img_prompt = meta.get("thumbnail_image_prompt") or default_prompt
     if not bg_ready and gemini_key:
         print("[THUMBNAIL] Attempting Google Imagen 3 generation...")
         bg_ready = generate_imagen3_background(img_prompt, gemini_key, bg_img_path)
@@ -475,7 +545,13 @@ def make_thumbnail(
         create_gradient_backdrop(bg_img_path)
         bg_ready = True
 
-    # 3. Render via Chrome Headless
+    # If AI Mode is selected (Default), save AI-designed visual directly as thumbnail!
+    if mode.lower() == "ai":
+        shutil.copy(bg_img_path, out_path)
+        print(f"[THUMBNAIL] Successfully created AI-Designed YouTube Thumbnail: {out_path} ({out_path.stat().st_size:,} bytes)")
+        return str(out_path)
+
+    # 3. Render via Chrome Headless (HTML Template Mode)
     fmt_data = {
         "bg_url": bg_img_path.name,
         "bg_pos": "right 30%",
@@ -549,6 +625,7 @@ def main():
     ap.add_argument("--font-style", default="baloo", help="Font style (kept for compatibility)")
     ap.add_argument("--channel", default="Kisan bdlega", help="Channel name")
     ap.add_argument("--template", help="Specific template name (e.g. template1, template2, template4_split)")
+    ap.add_argument("--mode", default="ai", choices=["ai", "html"], help="Generation mode: 'ai' (pure AI prompt-designed) or 'html' (HTML template)")
     args = ap.parse_args()
 
     out = make_thumbnail(
@@ -558,7 +635,8 @@ def main():
         custom_bg=args.background,
         text=args.text,
         channel_name=args.channel,
-        template=args.template
+        template=args.template,
+        mode=args.mode
     )
     print(f"Generated High-CTR YouTube thumbnail: {out}")
 
