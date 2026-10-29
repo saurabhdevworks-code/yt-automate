@@ -54,8 +54,16 @@ def ist_to_utc_cron(time_str: str) -> tuple[str, str]:
 def load_schedule_config() -> dict:
     if not SCHEDULE_FILE.exists():
         default_cfg = {
+            "_comment": "YouTube Automation Schedule Settings. Har time entry par 1 video generate & upload hogi.",
             "enabled": True,
             "privacy": "private",
+            "_time_format_info": "24-Hour Format (HH:MM) - Indian Standard Time (IST)",
+            "_time_format_examples": {
+                "Morning (9:00 AM)": "09:00",
+                "Afternoon (1:30 PM)": "13:30",
+                "Evening (6:00 PM)": "18:00",
+                "Night (9:00 PM)": "21:00"
+            },
             "times_ist": ["09:00"]
         }
         SCHEDULE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -68,6 +76,15 @@ def load_schedule_config() -> dict:
 
 
 def save_schedule_config(cfg: dict):
+    if "_time_format_info" not in cfg:
+        cfg["_time_format_info"] = "24-Hour Format (HH:MM) - Indian Standard Time (IST)"
+    if "_time_format_examples" not in cfg:
+        cfg["_time_format_examples"] = {
+            "Morning (9:00 AM)": "09:00",
+            "Afternoon (1:30 PM)": "13:30",
+            "Evening (6:00 PM)": "18:00",
+            "Night (9:00 PM)": "21:00"
+        }
     with open(SCHEDULE_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 
