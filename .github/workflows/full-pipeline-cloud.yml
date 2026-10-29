@@ -71,7 +71,10 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: "30 3 * * *" # 09:00 IST daily
+    - cron: "30 3 * * *" # 09:00 AM IST
+
+
+
 
 permissions:
   contents: write

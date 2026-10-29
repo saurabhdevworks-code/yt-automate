@@ -1,0 +1,8 @@
+{
+  "_comment": "YouTube Automation Schedule Settings. Time is in 24-hr IST (Indian Standard Time). Har time par 1 video ban kar upload hogi.",
+  "enabled": true,
+  "privacy": "private",
+  "times_ist": [
+    "09:00"
+  ]
+}
