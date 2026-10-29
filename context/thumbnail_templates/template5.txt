@@ -1,1 +1,8 @@
-A futuristic high-tech, viral YouTube thumbnail for smart modern agriculture: "{topic}". A tech-savvy young Indian farmer in agricultural fields holding an illuminated high-tech smart tablet controlling automated drip systems, with an advanced agricultural drone hovering in a dramatic golden sunset sky. Vibrant saturated colors, cinematic lighting, sharp crisp focal detail, high-tech modern equipment meets fertile green farm, 4K commercial photography quality. {style_notes}
+Create a YouTube thumbnail, 16:9, 1280x720, breaking-news high-CTR alert layout.
+1) Top left corner has a bold red alert ribbon badge: “[TOPIC LABEL]”.
+2) Center-right: A large, sharp, highly expressive Indian farmer with an amazed shocked facial expression looking directly into camera, pointing towards [MAIN VISUAL] related to [TOPIC].
+3) Center-left: Large, bold, high-contrast Devanagari Hindi headline: “[MAIN HEADLINE]”.
+4) Below the headline, a bright yellow highlight tag box with bold black text: “[KEY PHRASE]”.
+5) Background: Cinematic 4K full-bleed view of [SETTING] with lush green crops and modern farming equipment under dynamic dramatic sky.
+6) Rich saturated colors, extreme sharpness, high contrast, mobile-optimized typography hierarchy.
+Use exact text only: “[MAIN HEADLINE]”. No extra watermark, logo, or invented claims.

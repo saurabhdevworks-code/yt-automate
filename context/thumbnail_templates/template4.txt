@@ -1,1 +1,8 @@
-A high-CTR dramatic split-screen YouTube thumbnail comparing old struggling farming vs new modern high-yield method for "{topic}". The left side depicts dry, struggling traditional crops with worried farmer expression. The right side bursts with vibrant green prosperous high-tech crops, automated irrigation gushing fresh clean water, and a smiling successful farmer. Extreme visual contrast, intense color grading, photorealistic 4K lighting, ultra-clickable curiosity hook framing. {style_notes}
+Create a YouTube thumbnail, 16:9, 1280x720, dramatic split-screen high-CTR comparison layout.
+1) Split composition vertically: Left 50% vs Right 50% with a clean high-contrast central dividing boundary.
+2) Left 50%: [BEFORE VISUAL] showing traditional, low-yield, or struggling method with worried Indian farmer in muted, dusty tones.
+3) Right 50%: [AFTER VISUAL] showing modern high-yield prosperous breakthrough method for [TOPIC] with vibrant glowing green crops, gushing clean irrigation, and a proud smiling farmer.
+4) In the center, place a bold high-contrast circle badge with text: "[VS OR COMPARISON BADGE]".
+5) Across the top, place a full-width high-contrast header bar with huge bold Hindi headline: “[MAIN HEADLINE]”.
+6) Rich saturated colors on the right side, dramatic lighting contrast, 4K commercial agricultural photography, clear mobile-first visual hierarchy.
+Use exact text only: “[MAIN HEADLINE]”. No extra watermark, random characters, or invented claims.

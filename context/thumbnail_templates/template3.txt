@@ -1,1 +1,12 @@
-An authoritative, high-CTR YouTube thumbnail for government scheme and subsidy guide: "{topic}". A confident, smiling Indian farmer in clean traditional kurta and turban proudly presenting certified official government approval documents with a shiny official gold seal. Background displays modern green farming infrastructure with solar irrigation pumps and flourishing crops under bright clear daylight. High contrast, clean trustworthy visual aesthetic, 4K commercial quality, perfect YouTube thumbnail composition. {style_notes}
+Create a YouTube thumbnail, 16:9, 1280x720, using the uploaded reference image as a close composition guide.
+1) Left 55–60%: a large, sharp, photorealistic image of [MAIN SUBJECT] filling the height. Make it visually dominant.
+2) Right 40–45%: a deep black/dark gradient panel for text.
+3) On the right, stack the text in this hierarchy:
+   Small white line: “[TOPIC LABEL]”
+   Huge yellow line: “[KEY PHRASE]”
+   Extra-large white number/claim: “[NUMBER OR SHORT HOOK]”
+   Smaller bold white support line: “[SUPPORTING TEXT]”
+4) Add a thick, hand-drawn curved white arrow pointing toward [IMPORTANT DETAIL] on the left image.
+5) Use high contrast, bold Devanagari typography, dramatic lighting, realistic texture, and a strong focal point.
+6) Adapt all images to [TOPIC]. Do not use cucumber/farming imagery unless relevant.
+Keep the exact supplied wording. If no verified statistic exists, use a non-numeric hook instead of making up a result. No extra text, logo, watermark, or random characters.

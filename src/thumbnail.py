@@ -153,6 +153,60 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </html>"""
 
 
+def populate_prompt_template(
+    prompt_tpl: str,
+    meta: dict,
+    topic_str: str,
+    default_line1: str,
+    default_highlight: str,
+    default_benefit: str,
+    default_top: str,
+    default_num: str,
+    channel_name: str
+) -> str:
+    """Safely populate all template variables [TOPIC], [MAIN HEADLINE], {topic}, etc."""
+    headline = meta.get("thumbnail_line1") or default_line1
+    subheadline = meta.get("thumbnail_highlight") or default_highlight
+    key_word = meta.get("thumbnail_highlight") or "बंपर मुनाफा"
+    hook_num = meta.get("thumbnail_stat_num") or default_num
+    badge_label = meta.get("thumbnail_top_badge") or default_top
+    support_text = meta.get("thumbnail_benefit") or default_benefit
+
+    replacements = {
+        "[TOPIC]": topic_str,
+        "{topic}": topic_str,
+        "[MAIN HEADLINE]": headline,
+        "{main_headline}": headline,
+        "{headline}": headline,
+        "[SUBHEADLINE]": subheadline,
+        "{subheadline}": subheadline,
+        "[KEY WORD]": key_word,
+        "[KEY PHRASE]": key_word,
+        "{highlight}": subheadline,
+        "[NUMBER OR SHORT HOOK]": hook_num,
+        "[TOPIC LABEL]": badge_label,
+        "[SUPPORTING TEXT]": support_text,
+        "{benefit}": support_text,
+        "[MAIN VISUAL]": f"Indian farmer with modern agricultural setup and healthy lush crops for {topic_str}",
+        "[MAIN SUBJECT]": f"proud Indian farmer in traditional attire showcasing high-yield results for {topic_str}",
+        "[SETTING]": "fertile agricultural fields in India with modern irrigation under bright cinematic daylight",
+        "[SECONDARY VISUAL]": "close-up of farmer holding official documents and fresh high-grade harvest",
+        "[VISUAL 1]": f"close-up of lush healthy soil and crops for {topic_str}",
+        "[VISUAL 2]": f"modern irrigation and smart agricultural setup for {topic_str}",
+        "[VISUAL 3]": f"happy farmer reviewing top-grade high-yield harvest for {topic_str}",
+        "[IMPORTANT DETAIL]": "modern automated irrigation nozzle delivering water to lush green crops",
+        "[BEFORE VISUAL]": "traditional dry agricultural field with low yield and worried farmer",
+        "[AFTER VISUAL]": f"modern prosperous high-yield farm with gushing irrigation and smiling farmer for {topic_str}",
+        "[VS OR COMPARISON BADGE]": "VS",
+        "{channel_name}": channel_name,
+        "{style_notes}": meta.get("thumbnail_image_prompt") or "",
+    }
+
+    res = prompt_tpl
+    for k, v in replacements.items():
+        res = res.replace(k, str(v))
+    return res
+
 def resolve_prompt_template(template_name: str = None, fmt_type: str = None) -> tuple[str, str] | tuple[None, None]:
     """Resolve AI Prompt template. If template_name is not provided, picks a RANDOM template from context/thumbnail_templates/."""
     templates_dirs = [
@@ -506,14 +560,18 @@ def make_thumbnail(
     prompt_tpl, chosen_template_name = resolve_prompt_template(template_name=template, fmt_type=fmt_type)
     topic_str = meta.get("topic") or meta.get("title") or text or "Indian Agriculture"
     if prompt_tpl:
-        img_prompt = prompt_tpl.replace("{topic}", str(topic_str))\
-                               .replace("{headline}", str(default_line1))\
-                               .replace("{title}", str(topic_str))\
-                               .replace("{highlight}", str(default_highlight))\
-                               .replace("{benefit}", str(default_benefit))\
-                               .replace("{channel_name}", str(channel_name))\
-                               .replace("{style_notes}", str(meta.get("thumbnail_image_prompt") or ""))
-        print(f"[THUMBNAIL] Using AI Prompt Template for '{fmt_type}': {img_prompt[:130]}...")
+        img_prompt = populate_prompt_template(
+            prompt_tpl=prompt_tpl,
+            meta=meta,
+            topic_str=topic_str,
+            default_line1=default_line1,
+            default_highlight=default_highlight,
+            default_benefit=default_benefit,
+            default_top=default_top,
+            default_num=default_num,
+            channel_name=channel_name
+        )
+        print(f"[THUMBNAIL] Populated AI Template ({chosen_template_name}): {img_prompt[:140]}...")
     else:
         img_prompt = meta.get("thumbnail_image_prompt") or default_prompt
     if not bg_ready and gemini_key:

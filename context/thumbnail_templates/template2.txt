@@ -1,1 +1,8 @@
-A high-CTR YouTube thumbnail showing massive wealth and bumper profit from farming: "{topic}". A joyful, prosperous Indian farmer with a broad beaming smile standing next to overflowing giant baskets of fresh, glossy top-grade agricultural harvest. Golden hour sunlight casting a rich warm glow over modern farm fields. High contrast, rich emerald greens and golden yellow tones, commercial agriculture advertisement style, ultra-sharp 4K details, irresistible click appeal. {style_notes}
+Create a YouTube thumbnail, 16:9, 1280x720, closely following the uploaded reference image's layout.
+1) A bright saturated yellow banner fills the entire top 22–24% of the image.
+2) Put the very large, heavy black Hindi headline “[MAIN HEADLINE]” across this banner. Emphasize “[KEY WORD]” inside a black rounded rectangle with yellow letters, matching the reference style.
+3) The remaining 76–78% is a cinematic, realistic, full-bleed photo of [MAIN VISUAL] in a [SETTING].
+4) Add a small inset photo at the lower-right, with a thick white rounded border, showing [SECONDARY VISUAL].
+5) Use bold contrast, warm dramatic lighting, strong detail, clear subject separation and an uncluttered background.
+6) The photo subject must change to match [TOPIC]; do not reuse tomatoes or farm imagery unless the topic is about them.
+Use exact text only: “[MAIN HEADLINE]”. No additional captions, watermark, logos, or random letters. Keep text inside safe margins and readable on a phone. Do not invent facts.

@@ -1,1 +1,10 @@
-A viral high-CTR YouTube thumbnail for Indian agriculture video about "{topic}". An expressive Indian farmer with wide amazed eyes and open-mouth shocked expression, pointing his finger towards a game-changing breakthrough on his farm. Background features ultra-lush vibrant green crops under dramatic cinematic sunlight. High visual impact, bold contrast, saturated colors, extreme sharpness, 4K commercial agriculture photography quality, highly clickable YouTube thumbnail framing with negative space on one side. {style_notes}
+Create a YouTube thumbnail, 16:9, 1280x720. Use the uploaded reference image as a close layout/style guide.
+Keep this composition:
+1) Full-width deep maroon top banner, about 23% height, with huge bold white Hindi headline: “[MAIN HEADLINE]”.
+2) Directly below it, a wide white rounded rectangle overlapping the background, with deep-maroon bold text: “[SUBHEADLINE]”.
+3) Use a cinematic, photorealistic full-frame background related to [TOPIC].
+4) Across the lower-middle area, place THREE tall rounded-rectangle cards with thick white borders. Each card shows a different relevant close-up: [VISUAL 1], [VISUAL 2], [VISUAL 3]. If the topic is not a comparison/list, use three useful details or examples from the topic.
+5) Rich realistic colors, high contrast, dramatic natural lighting, sharp main subject, background depth and slightly softened card backgrounds.
+6) Match the reference’s bold, crowded-but-readable Hindi thumbnail aesthetic. Keep text very large and mobile-readable.
+Replace all agriculture imagery with imagery relevant to [TOPIC]. Render only the exact supplied text; no extra text, logos, watermark, or random characters.
+Text: headline “[MAIN HEADLINE]”; subheadline “[SUBHEADLINE]”. Do not invent claims or statistics.
