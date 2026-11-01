@@ -23,13 +23,13 @@ def load_context():
             except Exception:
                 pass
     return {
-        "channel_name": "Kisan bdlega",
-        "niche": "Farming and Agriculture",
-        "country": "India",
-        "location": "India",
-        "language": "Hindi",
-        "target_audience": "भारतीय किसान, ग्रामीण युवा और आधुनिक कृषि उद्यमी",
-        "thumbnail_fonts": ["Mukta", "Hind", "Poppins", "Baloo"]
+        "channel_name": "BEYOND THE OBVIOUS",
+        "niche": "Mind-Bending Book Summaries, Deep Philosophy, Dark Psychology & Craziest Theories",
+        "country": "United States",
+        "location": "United States",
+        "language": "English",
+        "target_audience": "USA & Global English viewers, curious thinkers, philosophy & psychology enthusiasts, book lovers, and theory explorers",
+        "thumbnail_fonts": ["Montserrat", "Bebas Neue", "Poppins", "Inter"]
     }
 
 def load_yt_rules():
@@ -40,84 +40,45 @@ def load_yt_rules():
                 return json.loads(p.read_text(encoding="utf-8"))
             except Exception:
                 pass
-    return {}
+    return None
 
 def generate_metadata(topic, audience, channel_info=None):
     if channel_info is None:
         channel_info = load_context()
-    ch_name = channel_info.get("channel_name", "Kisan bdlega")
+    ch_name = channel_info.get("channel_name", "BEYOND THE OBVIOUS")
 
-    # Smart fallback based on topic classification
-    topic_l = topic.lower()
-    if any(k in topic_l for k in ["सब्सिडी", "योजना", "निधि", "kusum", "pm kisan", "scheme"]):
-        fmt_type = "scheme"
-        line1 = f"{topic[:16]} योजना"
-        highlight = "80% सब्सिडी तुरंत!"
-        benefit = "⚡ बिजली बिल ₹0 • पानी भरपूर सप्लाई"
-        top_badge = "🚨 सरकारी योजना 2026"
-        stat_num = "80%"
-        stat_title = "सरकारी सब्सिडी"
-        stat_tag = "✔ ऑनलाइन आवेदन शुरू"
-        img_prompt = (
-            "Cinematic YouTube thumbnail of an Indian farmer smiling with thumbs up standing next to "
-            "modern solar panels powering an irrigation pump gushing clean water into a lush green field, "
-            "sunny blue sky, photorealistic, 4K commercial photography quality, vivid saturated colors."
-        )
-    elif any(k in topic_l for k in ["कमाई", "मुनाफा", "लाख", "करोड़", "business", "profit", "पॉलीहाउस"]):
-        fmt_type = "profit"
-        line1 = f"{topic[:16]} से"
-        highlight = "₹5 लाख महीना कमाई!"
-        benefit = "🚀 कम जमीन में 4x ज्यादा मुनाफा"
-        top_badge = "💰 बंपर कमाई 2026"
-        stat_num = "₹5L"
-        stat_title = "प्रति महीना कमाई"
-        stat_tag = "✔ 100% सफल मॉडल"
-        img_prompt = (
-            "Cinematic YouTube thumbnail inside a modern high-tech commercial polyhouse greenhouse in India, "
-            "lush rows of ripe red tomatoes, proud Indian farmer holding fresh harvest basket, "
-            "diffused greenhouse sunlight, photorealistic, 4K commercial agricultural photography, vivid rich colors."
-        )
-    else:
-        fmt_type = "tech"
-        line1 = f"{topic[:16]} तकनीक"
-        highlight = "कम पानी, बंपर पैदावार!"
-        benefit = "💧 80% पानी की बचत + ड्रोन छिड़काव"
-        top_badge = "🔥 2026 की नई तकनीक"
-        stat_num = "3X"
-        stat_title = "बंपर पैदावार"
-        stat_tag = "✔ 100% सटीक जानकारी"
-        img_prompt = (
-            "Cinematic YouTube thumbnail of an Indian smart farmer holding an illuminated telemetry tablet "
-            "in a lush green crop field with drip irrigation pipes and an agricultural drone hovering in golden hour sky, "
-            "4K commercial photography quality, vivid saturated colors."
-        )
-
+    # Smart English fallback metadata
     fallback = {
-        "title": f"{topic} | {ch_name} - किसान बदलेगा",
+        "title": f"{topic} | {ch_name}",
         "description": (
-            f"स्वागत है '{ch_name}' पर!\n\n"
-            f"इस वीडियो में हम बात करेंगे: {topic} के बारे में। "
-            f"आधुनिक खेती, उन्नत बीज, नई कृषि तकनीक, खाद प्रबंधन और सरकारी योजनाओं की पूरी जानकारी।\n\n"
-            f"📌 चैनल को Subscribe करें और अपनी खेती को बनाएं अधिक मुनाफेदार!\n"
-            f"किसान बदलेगा तो देश बदलेगा! 🌾\n\n"
-            f"#KisanBdlega #KhetiBadi #SmartFarming #IndianAgriculture #KisanYojana"
+            f"Welcome to {ch_name}.\n\n"
+            f"In this deep dive, we explore: {topic}.\n\n"
+            f"We deconstruct the core psychology, mind-bending philosophical paradoxes, "
+            f"and transformative book insights that shatter conventional thinking.\n\n"
+            f"📌 Subscribe to {ch_name} for weekly deep dives into the craziest theories, "
+            f"hidden psychology, and transformative books that change how you see reality.\n\n"
+            f"#BeyondTheObvious #Philosophy #Psychology #BookSummary #SimulationTheory #DarkPsychology"
         ),
         "tags": [
-            ch_name, "Kisan bdlega", "Kisan Badlega", "Kheti Badi", "Aadhunik Kheti",
-            "Smart Farming India", "Krishi Gyan", "Indian Agriculture", "Kisan Yojana",
-            "Crop Protection", "Organic Farming India", "Hindi Farming Guide"
+            ch_name, "Beyond The Obvious", "Book Summary", "Psychology", "Philosophy",
+            "Craziest Theories", "Mind Bending Theories", "Simulation Theory", "Deep Thinking",
+            "Fermi Paradox", "Dark Psychology", "Cognitive Biases", "Self Improvement Books"
         ],
-        "hashtags": ["#KisanBdlega", "#KhetiBadi", "#SmartFarming", "#IndianAgriculture"],
-        "thumbnail_text": highlight,
-        "thumbnail_format": fmt_type,
-        "thumbnail_line1": line1,
-        "thumbnail_highlight": highlight,
-        "thumbnail_benefit": benefit,
-        "thumbnail_top_badge": top_badge,
-        "thumbnail_stat_num": stat_num,
-        "thumbnail_stat_title": stat_title,
-        "thumbnail_stat_tag": stat_tag,
-        "thumbnail_image_prompt": img_prompt
+        "hashtags": ["#BeyondTheObvious", "#Psychology", "#Philosophy", "#BookSummary", "#DeepThinking"],
+        "thumbnail_text": "SHATTER REALITY",
+        "thumbnail_format": "mystery",
+        "thumbnail_line1": "THE HIDDEN TRUTH OF",
+        "thumbnail_highlight": "WHAT THEY HIDE!",
+        "thumbnail_benefit": "👁️ The Mind-Bending Paradox Explained",
+        "thumbnail_top_badge": "🚨 PARADIGM SHIFT",
+        "thumbnail_stat_num": "99.9%",
+        "thumbnail_stat_title": "Will Question Reality",
+        "thumbnail_stat_tag": "✔ Mind-Bending Theory",
+        "thumbnail_image_prompt": (
+            f"Cinematic dark psychological mystery YouTube thumbnail exploring {topic}, "
+            "striking visual metaphor, glowing surreal illumination in cosmic deep shadows, "
+            "ultra-detailed 4K photorealistic composition, octane render quality, breathtaking aesthetic."
+        )
     }
 
     key = os.getenv("GEMINI_API_KEY")
@@ -131,26 +92,27 @@ def generate_metadata(topic, audience, channel_info=None):
 
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     prompt = (
-        f"You are the head YouTube strategist for the popular Indian farming channel '{ch_name}'.\n"
-        f"Niche: Farming and Agriculture in India.\n"
+        f"You are the executive YouTube strategist for the prestigious channel '{ch_name}'.\n"
+        f"Niche: Mind-Bending Book Summaries, Deep Philosophy, Dark Psychology, and Craziest Unsolved Theories.\n"
+        f"Target Audience: USA & Global English thinkers, book lovers, psychology & philosophy enthusiasts.\n"
         f"Topic: {topic}\n"
-        f"Target Audience: {audience}\n"
         f"{rules_text}\n"
+        "Generate a viral, intellectual, high-CTR YouTube metadata package in natural, captivating English.\n"
         "Requirements:\n"
-        "1. title: Eye-catching, click-worthy Hindi title for Indian farmers (under 90 chars). Include channel branding or farming hook.\n"
-        "2. description: Detailed, informative Hindi description with intro, bullet points, call-to-action for 'Kisan bdlega', and hashtags.\n"
-        "3. tags: Array of 20-30 high-ranking Hindi & English YouTube search tags related to Indian farming and this topic.\n"
-        "4. hashtags: 3-5 relevant hashtags including #KisanBdlega.\n"
-        "5. thumbnail_format: pick one of 'scheme', 'profit', or 'tech' depending on what fits the topic best.\n"
-        "6. thumbnail_line1: Short context line in Hindi (e.g. 'सोलर पंप योजना से' or 'पॉलीहाउस खेती से') (3-5 words).\n"
-        "7. thumbnail_highlight: High-contrast emotional hook in Hindi for yellow sticker ribbon (e.g. '80% सब्सिडी तुरंत!' or '₹5 लाख महीना कमाई!') (under 25 chars).\n"
-        "8. thumbnail_benefit: Green benefit pill in Hindi with icon (e.g. '⚡ बिजली बिल ₹0 • पानी भरपूर सप्लाई' or '🚀 कम जमीन में 4x ज्यादा मुनाफा') (under 40 chars).\n"
-        "9. thumbnail_top_badge: Alert hook in Hindi (e.g. '🚨 सरकारी योजना 2026' or '💰 बंपर कमाई 2026' or '🔥 2026 की नई तकनीक').\n"
-        "10. thumbnail_stat_num: Bold stat number or value (e.g. '80%' or '₹5L' or '3X').\n"
-        "11. thumbnail_stat_title: Stat label in Hindi (e.g. 'सरकारी सब्सिडी' or 'प्रति महीना कमाई' or 'बंपर पैदावार').\n"
-        "12. thumbnail_stat_tag: Trust/action tag in Hindi (e.g. '✔ ऑनलाइन आवेदन शुरू' or '✔ 100% सफल मॉडल').\n"
-        "13. thumbnail_image_prompt: Highly detailed 16:9 cinematic prompt for Google Imagen 3 image generation showing Indian farmer, agricultural setting, 4K commercial photography quality, vivid saturated colors.\n"
-        "14. thumbnail_text: 2-4 punchy Hindi Devanagari words for mobile.\n"
+        "1. title: Intriguing, click-worthy English title under 80 characters. Balance philosophical curiosity and viral hook (e.g. 'The Dark Forest Theory: Why Finding Aliens Is Our Worst Nightmare').\n"
+        "2. description: Well-structured, intellectual English description with an irresistible hook, key insights breakdown, book/theory synthesis, and call-to-action.\n"
+        "3. tags: Array of 20-30 high-ranking English search tags relevant to books, psychology, theories, and this specific topic.\n"
+        "4. hashtags: 3-5 relevant hashtags including #BeyondTheObvious.\n"
+        "5. thumbnail_format: pick one of 'paradox', 'glitch', or 'mystery'.\n"
+        "6. thumbnail_line1: Short uppercase English context line (3-4 words, e.g. 'THE TERRIFYING TRUTH' or 'WHY REALITY IS A LIE').\n"
+        "7. thumbnail_highlight: Massive high-impact curiosity hook (2-4 words, e.g. 'NOT WHAT IT SEEMS', 'DON'T LOOK AWAY').\n"
+        "8. thumbnail_benefit: Intriguing supporting line (e.g. '👁️ The Paradox That Shook Physicists').\n"
+        "9. thumbnail_top_badge: Alert hook badge (e.g. '🚨 MIND-BENDING THEORY' or '📖 FORBIDDEN PSYCHOLOGY').\n"
+        "10. thumbnail_stat_num: Bold impact number or phrase (e.g. '1 IN A BILLION' or '99.9%' or 'THE 1% RULE').\n"
+        "11. thumbnail_stat_title: Stat label (e.g. 'Probability' or 'Mind Glitch' or 'Paradox Unlocked').\n"
+        "12. thumbnail_stat_tag: Trust/intrigue tag (e.g. '✔ Verified Concept' or '✔ Bestselling Book').\n"
+        "13. thumbnail_image_prompt: Highly detailed 16:9 cinematic prompt for Google Imagen 3 image generation showing a surreal philosophical/psychological visual metaphor, dramatic shadows, ray-traced neon/amber glow, 4K film quality.\n"
+        "14. thumbnail_text: 2-3 punchy uppercase English words for mobile screens.\n"
         "Return ONLY a valid JSON object matching these keys."
     )
     try:
@@ -164,49 +126,48 @@ def generate_metadata(topic, audience, channel_info=None):
         r.raise_for_status()
         text = "\n".join(p.get("text", "") for c in r.json().get("candidates", [])
                          for p in c.get("content", {}).get("parts", []))
-        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.I)
-        obj = json.loads(text)
-        for k, v in fallback.items():
-            obj.setdefault(k, v)
-        return obj
-    except Exception as exc:
-        print(f"WARNING: Gemini metadata generation failed; using fallback: {exc}")
-        return fallback
+        match = re.search(r"\{[\s\S]*\}", text)
+        if match:
+            parsed = json.loads(match.group(0))
+            for k, v in fallback.items():
+                if k not in parsed or not parsed[k]:
+                    parsed[k] = v
+            return parsed
+    except Exception as e:
+        print(f"[WARN] Gemini metadata generation failed: {e}. Using fallback.")
+    return fallback
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Generate AI Research Pack for Beyond The Obvious")
     ap.add_argument("--settings", default="config/settings.json")
     ap.add_argument("--output", default="output")
-    ap.add_argument("--custom-topic", default="", help="Custom user-specified topic")
-    ap.add_argument("--custom-title", default="", help="Custom YouTube title")
-    ap.add_argument("--custom-description", default="", help="Custom YouTube description")
-    ap.add_argument("--custom-tags", default="", help="Custom YouTube tags (comma-separated)")
-    ap.add_argument("--ideas-file", default="config/ideas.csv", help="Path to ideas CSV file (optional)")
-    ap.add_argument("--disable-csv-ideas", action="store_true", help="Disable picking ideas from CSV")
+    ap.add_argument("--ideas-file", default="context/topics.csv")
+    ap.add_argument("--disable-csv-ideas", action="store_true")
+    ap.add_argument("--custom-topic", default="")
+    ap.add_argument("--custom-title", default="")
+    ap.add_argument("--custom-description", default="")
+    ap.add_argument("--custom-tags", default="")
     args = ap.parse_args()
 
+    settings = json.loads(Path(args.settings).read_text(encoding="utf-8")) if Path(args.settings).exists() else {}
     channel_info = load_context()
-    settings = json.loads((ROOT / args.settings).read_text(encoding="utf-8"))
-
-    ch_name = channel_info.get("channel_name", "Kisan bdlega")
+    ch_name = channel_info.get("channel_name", "BEYOND THE OBVIOUS")
     ideas_csv = resolve_ideas_csv(ROOT / args.ideas_file if args.ideas_file != "config/ideas.csv" else None)
 
     if args.custom_topic.strip():
         topic = args.custom_topic.strip()
         print(f"\n[CUSTOM MODE - {ch_name}] Topic: '{topic}'")
-        # Mark as used in CSV if found to prevent duplication
         if not args.disable_csv_ideas and ideas_csv.exists():
             if mark_idea_used(ideas_csv, topic):
                 print(f"[IDEAS CSV] Marked topic '{topic}' as 'used' in {args.ideas_file}")
         topics = [{
             "title": topic,
-            "url": "https://krishijagran.com/",
-            "publisher": f"{ch_name} (Custom Agriculture Topic)",
+            "url": "https://en.wikipedia.org/wiki/Special:Search?search=" + requests.utils.quote(topic),
+            "publisher": f"{ch_name} (Custom Request)",
             "published": datetime.now(timezone.utc).isoformat(),
-            "summary": f"Complete guide and actionable advice on {topic} for Indian farmers."
+            "summary": f"In-depth philosophical and psychological analysis of {topic}."
         }]
     else:
-        # Check if CSV ideas file has any pending topics
         csv_topic = None
         if not args.disable_csv_ideas and ideas_csv.exists():
             csv_topic = pick_and_mark_next_idea(ideas_csv)
@@ -217,17 +178,17 @@ def main():
             print(f"[IDEAS CSV] Marked as 'used' in {args.ideas_file} to avoid duplication.")
             topics = [{
                 "title": topic,
-                "url": "https://krishijagran.com/",
+                "url": "https://en.wikipedia.org/wiki/Special:Search?search=" + requests.utils.quote(topic),
                 "publisher": f"{ch_name} (Curated Idea from CSV)",
                 "published": datetime.now(timezone.utc).isoformat(),
-                "summary": f"Complete guide and actionable advice on {topic} for Indian farmers."
+                "summary": f"Comprehensive synthesis and philosophical breakdown of {topic}."
             }]
         else:
             if ideas_csv.exists() and not args.disable_csv_ideas:
                 print("\n" + "=" * 70)
                 print(f" [PIPELINE PAUSED] All topics in {ideas_csv.name} have been completed!")
-                print(f" Sabhi topics khatam ho chuke hain. Pipeline is safely paused.")
-                print(f" Naye topics add karein (status: 'unused') in {ideas_csv.name} to resume.")
+                print(f" All curated book & theory topics completed. Pipeline is safely paused.")
+                print(f" Add new topics (status: 'unused') in {ideas_csv.name} to resume.")
                 print("=" * 70 + "\n")
                 pause_file = ROOT / args.output / "PIPELINE_PAUSED.txt"
                 pause_file.parent.mkdir(parents=True, exist_ok=True)
@@ -246,7 +207,6 @@ def main():
 
     metadata = generate_metadata(topic, settings.get("target_audience", channel_info.get("target_audience")), channel_info)
 
-    # Apply manual custom overrides if specified
     if args.custom_title.strip():
         metadata["title"] = args.custom_title.strip()[:100]
     if args.custom_description.strip():
@@ -259,42 +219,43 @@ def main():
     (out / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
 
     source_lines = "\n".join(
-        f"- [{x['title']}]({x['url']}) — {x.get('publisher','')} | {x.get('published','')}\n  - विवरण: {x.get('summary','')}"
+        f"- [{x['title']}]({x['url']}) — {x.get('publisher','')} | {x.get('published','')}\n  - Summary: {x.get('summary','')}"
         for x in topics
     )
-    brief = f"""# Research Brief: {ch_name}
+    brief = f"""# Research & Deep Dive Brief: {ch_name}
 
-- चैनल (Channel): {ch_name}
-- क्षेत्र (Niche): {channel_info.get('niche', 'Farming and Agriculture')}
-- देश (Country/Location): {channel_info.get('country', 'India')}
-- भाषा (Language): {channel_info.get('language', 'Hindi')}
-- दर्शक (Target Audience): {channel_info.get('target_audience')}
-- विज़न (Vision): {channel_info.get('channel_vision')}
-- समय (Duration): {settings.get('duration_min_minutes', 4)}–{settings.get('duration_max_minutes', 8)} मिनट
+- Channel: {ch_name}
+- Niche: {channel_info.get('niche')}
+- Location: {channel_info.get('country', 'United States')}
+- Language: {channel_info.get('language', 'English')}
+- Target Audience: {channel_info.get('target_audience')}
+- Channel Vision: {channel_info.get('channel_vision')}
+- Ideal Duration: {settings.get('duration_min_minutes', 5)}–{settings.get('duration_max_minutes', 10)} minutes
 
-## मुख्य विषय (Main Topic)
+## Main Subject / Concept
 {topic}
 
-## विषय का सार व उद्देश्य
-यह रिसर्च ब्रीफ भारतीय किसानों के लिए तैयार किया गया है।
-इस वीडियो का उद्देश्य किसानों को सरल और व्यावहारिक हिंदी में सही मार्गदर्शन देना है ताकि वे अपनी खेती से अधिकतम मुनाफा कमा सकें।
-प्रमुख बिंदु:
-1. विषय की बुनियादी और जरूरी जानकारी।
-2. आधुनिक तकनीक, उन्नत किस्म, या सरकारी योजना का किसानों को सीधा फायदा।
-3. सावधानियां, सही समय और लागत-मुनाफे का विश्लेषण।
-4. किसानों के लिए उपयोगी निष्कर्ष (Actionable Takeaway)।
+## Objective & Narrative Arc
+This research brief is curated for a thoughtful, intellectual audience seeking to look beyond ordinary assumptions.
+The goal of this video overview is to synthesize complex ideas, psychological paradoxes, and groundbreaking book lessons into an addictive, mind-expanding intellectual narrative.
 
-## संदर्भ व स्रोत (Sources)
+Core Pillars:
+1. The Core Paradox / Mind-Bending Question: Hook the viewer with what seems impossible or counterintuitive.
+2. The Deconstruction: Break down the author's key theories, psychological experiments, or philosophical axioms.
+3. The Counter-Narrative: Why society gets this wrong, and what the hidden consequence of this truth is.
+4. The Paradigm Shift: The actionable takeaway that permanently changes how the viewer perceives life, society, or the cosmos.
+
+## Curated Sources & Grounding Reference
 {source_lines}
 """
     (out / "research_brief.md").write_text(brief, encoding="utf-8")
 
-    prompt = f"""Create an engaging Hindi Video Overview for Indian farmers and rural youth.
+    prompt = f"""Create an intellectual, highly engaging English Video Overview for thinkers, book lovers, and curious minds.
 Channel: {ch_name}
 Topic: {topic}
-Language: Natural, conversational, respectful Hindi.
-Style: Practical and educational farming explainer.
-Focus on practical benefits, modern techniques, cost-profit analysis, and actionable advice for farmers.
+Language: Fluent, natural, engaging American English (clear, compelling storytelling tone).
+Style: A deep, mind-expanding podcast conversation between two brilliant thinkers deconstructing the book's most profound lessons, psychological paradoxes, and existential implications.
+Format: Cinematic, thought-provoking, avoiding superficial bullet points; dive straight into the existential, psychological, and transformative core of the idea.
 """
     (out / "notebooklm_prompt.txt").write_text(prompt, encoding="utf-8")
     print(f"Research pack created: {out}")

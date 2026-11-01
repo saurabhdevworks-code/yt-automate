@@ -1,73 +1,49 @@
-# MASTER PROMPT: KISAN BADLEGA AGRICULTURE THUMBNAIL
+# MASTER PROMPT: BEYOND THE OBVIOUS YOUTUBE THUMBNAIL
 
-Create a professional, high-impact YouTube thumbnail for a Hindi agriculture education channel called "KISAN BADLEGA", using the uploaded reference thumbnails as the primary visual style guide.
+Create a cinematic, ultra high-impact, award-winning YouTube thumbnail for a philosophical & psychological deep-dive channel called "BEYOND THE OBVIOUS".
+Target Audience: USA & Global English viewers interested in mind-bending book summaries, dark psychology, hidden philosophies, and craziest theories.
 
 ## 1. INPUT DETAILS
 
-- Video topic: [YOUR TOPIC]
-- Main Hindi headline: [MAIN HEADLINE]
-- Supporting text: [OPTIONAL SUBHEADING]
-- Main crop or subject: [CROP / SEED / FARMER / VEGETABLE]
-- Key message: [WHAT VIEWERS SHOULD UNDERSTAND]
-- Important numbers or facts: [YIELD / QUANTITY / YEAR / PRICE]
-- Thumbnail style: [AUTO / CROP TEXT / FARMER COMPARISON / BEFORE AFTER / MYSTERY CROPS]
+- Video Topic: [YOUR TOPIC]
+- Main English Headline: [MAIN HEADLINE]
+- Supporting Hook: [OPTIONAL SUBHEADING]
+- Main Visual Subject: [CORE VISUAL SUBJECT / METAPHOR / BOOK ARTIFACT]
+- Core Psychological / Existential Insight: [WHAT VIEWERS WILL QUESTION]
+- Key Keyword or Number: [KEY WORD / STAT]
+- Desired Aesthetic: High-contrast, dark cinematic mystery, psychological thriller, thought-provoking symbolism.
 
-## 2. REFERENCE STYLE
+## 2. ART DIRECTION & VISUAL STYLE
 
-Closely analyze the uploaded reference images and reproduce their visual design language, not their original content.
+- High Visual Tension: Use deep shadowy blacks, glowing neon cyan/gold accents, cosmic emerald tones, or rich amber contrasts.
+- Bold English Typography: Massive, punchy, ultra-readable typography (Montserrat / Bebas Neue style) with high contrast against the background. Maximum 3 to 5 words so it stays 100% readable on mobile screens.
+- Surreal & Thought-Provoking Metaphor: A striking visual metaphor (e.g. a human silhouette peering into a cosmic glitch, glowing neural pathways, shattering reality matrix, ancient philosophical bust contrasting modern tech, or infinite fractal reflections).
+- Realistic Lighting & 4K Detail: Cinematic volumetric lighting, ray-traced shadows, subtle film grain, dramatic rim lighting, sharp focal subject with clean depth of field.
+- Mobile First: Zero clutter. One unmistakable visual anchor that stops the scroll instantly.
 
-Use:
-- Large, bold Hindi Devanagari typography with thick strokes and strong readability.
-- A realistic agricultural background featuring detailed crops, leaves, fields, seeds, vegetables or farming activities.
-- High contrast between the headline, background and main subject.
-- A color palette based on bright yellow, white, deep red, natural green, black and warm golden agricultural tones.
-- Strong visual hierarchy, with one main message that viewers can understand instantly.
-- Realistic lighting, sharp crop details, rich textures and professional photographic compositing.
-- Large, clear focal objects rather than multiple small decorative elements.
-- Composition and text placement inspired by the most relevant reference thumbnail.
+## 3. SELECT THE MOST IMPACTFUL COMPOSITION
 
-## 3. SELECT THE MOST SUITABLE LAYOUT
+A. THE PARADOX SPLIT (Before vs After / Illusion vs Truth):
+Split composition with dramatic contrast. One side represents the common belief / surface reality (muted, orderly), and the other side reveals the terrifying or mind-bending hidden truth (cosmic code, cosmic void, glowing revelation).
 
-Choose the layout that best fits the topic.
+B. THE GLITCH & BREAKTHROUGH:
+A dominant central subject (human mind / glowing artifact / ancient philosopher bust / cosmic entity) experiencing a reality glitch or dimensional tear, with glowing golden or neon typography cutting through the shadows.
 
-A. CROP + BOLD TEXT:
-Use a large, realistic crop photograph as the background. Place a dark gradient or darkened area behind the headline when necessary. Use bold white text and highlight the most important number or result in bright yellow.
+C. THE DARK MYSTERY & CURIOUS ARROW:
+Dark moody cinematic background. The main visual subject occupies 60% of the frame, with an enigmatic glowing detail highlighted by a sharp minimalist indicator, paired with huge bold white/yellow hook text.
 
-B. FARMER + EDUCATIONAL COMPARISON:
-Use a realistic Indian farmer or relevant crop as the main subject. Add a warm golden agricultural background, a strong headline and only the essential comparison elements, such as seed size, crop quality or yield.
+## 4. TYPOGRAPHY RULES
 
-C. BEFORE AND AFTER:
-Create a clear split-screen comparison showing the inferior result on one side and the improved result on the other. Use a red cross and green check only when appropriate. Add a large, thick directional arrow if it helps explain the transformation.
+- Primary Headline: Huge bold pure white text across the upper or left quadrant.
+- Highlight Keyword: Bright electric yellow or glowing neon accent for maximum click curiosity.
+- Clean text margins: Keep all text well away from the borders and bottom-right YouTube timestamp overlay.
+- Never render garbled or misspelled words. Keep text extremely concise and razor sharp.
 
-D. MYSTERY CROPS:
-Show three distinct crop or vegetable panels with white borders over a realistic agricultural background. Use a deep-red headline banner and a white secondary text banner, matching the reference design when appropriate.
-
-## 4. TYPOGRAPHY AND TEXT PLACEMENT
-
-Keep the headline large enough to read on a mobile screen.
-
-Use white for primary text, yellow for important numbers or keywords, black for text on yellow backgrounds, and deep red for headline banners when suitable.
-
-Preserve the exact supplied Hindi wording, spelling, numbers and units. Do not invent additional text, statistics or claims. Do not translate the Hindi text into English.
-
-If exact Hindi typography cannot be rendered accurately, leave clean, intentional space for adding the headline manually in an image editor. Never generate random or garbled text.
-
-## 5. IMAGE QUALITY AND COMPOSITION
+## 5. IMAGE QUALITY SPECS
 
 - Canvas: 16:9 widescreen, 1280 × 720 pixels.
-- Keep important subjects and text within safe margins.
-- Use realistic crop photography and natural agricultural details.
-- Ensure the main subject is immediately recognizable.
-- Maintain a clean foreground-background separation.
-- Use arrows, comparison cards, borders and symbols only when they communicate the topic.
-- Avoid clutter, unnecessary logos, excessive glow, cartoonish crops and artificial-looking textures.
-- Do not add a watermark or an invented channel logo.
-- Avoid repeating the same crop, subject or decorative element unnecessarily.
+- Photorealistic 4K cinematic compositing, octane render quality, dramatic lighting.
+- No cheap cartoonish styles, no generic stock photo smiles, no low-resolution textures.
+- No watermarks, no channel logos, no fake subscription buttons.
 
-## 6. FINAL OBJECTIVE
-
-Produce one finished YouTube thumbnail that looks like it belongs to the same visual family as the supplied KISAN BADLEGA reference thumbnails, while being original and specifically designed for the new video topic.
-
-Prioritize strong Hindi readability, realistic agricultural imagery, immediate topic recognition and a clear visual hook.
-
-Output only the thumbnail artwork in 16:9 format, without mockups, device frames or extra presentation elements.
+Produce one pristine, breathtaking YouTube thumbnail artwork that compels the viewer to question reality and click immediately.

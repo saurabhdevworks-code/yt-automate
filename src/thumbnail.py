@@ -167,26 +167,37 @@ def populate_prompt_template(
     """Safely populate all template variables [TOPIC], [MAIN HEADLINE], {topic}, etc."""
     headline = meta.get("thumbnail_line1") or default_line1
     subheadline = meta.get("thumbnail_highlight") or default_highlight
-    key_word = meta.get("thumbnail_highlight") or "बंपर मुनाफा"
+    key_word = meta.get("thumbnail_highlight") or "THE MATRIX"
     hook_num = meta.get("thumbnail_stat_num") or default_num
     badge_label = meta.get("thumbnail_top_badge") or default_top
     support_text = meta.get("thumbnail_benefit") or default_benefit
 
-    # Detect crop / subject from topic
-    crop_subject = "गेहूँ, आलू, सरसों, मटर या भारतीय कृषि फसल"
+    # Detect theme / philosophical subject from topic
     topic_lower = topic_str.lower()
-    if "गेहूँ" in topic_lower or "wheat" in topic_lower:
-        crop_subject = "गेहूँ की लहलहाती फसल, उन्नत बालियां और दाने (Wheat Crop & Grains)"
-    elif "आलू" in topic_lower or "potato" in topic_lower:
-        crop_subject = "आलू की बंपर पैदावार, बड़े साफ कंद और स्वस्थ पौधे (Healthy Potatoes & Harvest)"
-    elif "सरसों" in topic_lower or "mustard" in topic_lower:
-        crop_subject = "सरसों की पीली चमकदार फसल और भरपूर दानेदार फलियां (Mustard Crop & Pods)"
-    elif "मटर" in topic_lower or "pea" in topic_lower:
-        crop_subject = "हरी ताज़ा मटर की फलियां और स्वस्थ पौधे (Green Pea Pods & Harvest)"
-    elif "सिंचाई" in topic_lower or "drip" in topic_lower:
-        crop_subject = "आधुनिक ड्रिप सिंचाई प्रणाली और जल प्रबंधन (Modern Drip Irrigation Setup)"
-    elif "खाद" in topic_lower or "compost" in topic_lower:
-        crop_subject = "जैविक खाद, वर्मीकंपोस्ट और उपजाऊ मिट्टी (Organic Compost & Rich Soil)"
+    if any(k in topic_lower for k in ["simulation", "code", "glitch", "matrix"]):
+        visual_subject = "human silhouette reaching towards a cosmic glitching reality matrix with emerald code raining down"
+        existential_insight = "What if every physical sensation and law of physics is lines of code running on an alien ancestor simulation?"
+    elif any(k in topic_lower for k in ["dark forest", "alien", "fermi", "space", "universe"]):
+        visual_subject = "a lone human standing on a desolate asteroid looking into a terrifying silent cosmic void with colossal concealed celestial eyes"
+        existential_insight = "Why cosmic silence is not emptiness, but extreme cosmic paranoia where any civilization that speaks is destroyed."
+    elif any(k in topic_lower for k in ["48 laws", "power", "dark psychology", "machiavelli", "manipulation"]):
+        visual_subject = "a shadowed silhouette playing an ancient golden chess board with fractured classical marble statues"
+        existential_insight = "The ruthless psychological laws of human dominance that historians and kings kept secret."
+    elif any(k in topic_lower for k in ["egg", "weir", "reincarnation", "soul", "god"]):
+        visual_subject = "two glowing universal consciousness figures dissolving into one radiant infinite golden embryo in deep space"
+        existential_insight = "What if every person you have ever loved, hurt, or passed by on the street was actually you at a different point in time?"
+    elif any(k in topic_lower for k in ["kahneman", "thinking", "brain", "bias", "illusion"]):
+        visual_subject = "a surreal anatomical human brain illuminated in neon cyan with glitching cognitive wiring and dual mirrors"
+        existential_insight = "The primitive cognitive illusion in System 1 that makes humans believe they have free will over their daily choices."
+    elif any(k in topic_lower for k in ["sapiens", "civilization", "harari", "myth"]):
+        visual_subject = "a prehistoric campfire casting massive towering shadows of modern skyscrapers and financial markets"
+        existential_insight = "How shared collective fictions and invented stories allowed an insignificant ape to conquer the planet."
+    elif any(k in topic_lower for k in ["marcus", "aurelius", "stoic", "meditations"]):
+        visual_subject = "a cracked Roman emperor marble bust glowing with inner golden resilience amidst falling ash and dark cosmic lightning"
+        existential_insight = "The ancient philosophical operating system for total mental invincibility amidst chaotic empires."
+    else:
+        visual_subject = f"surreal thought-provoking visual metaphor deconstructing {topic_str} with cinematic ray-traced shadows and neon ambient illumination"
+        existential_insight = f"The counterintuitive hidden truth behind {topic_str} that shatters ordinary conventional thinking."
 
     replacements = {
         # Master Prompt Input Fields
@@ -199,10 +210,12 @@ def populate_prompt_template(
         "[OPTIONAL SUBHEADING]": subheadline,
         "[SUBHEADLINE]": subheadline,
         "{subheadline}": subheadline,
-        "[CROP / SEED / FARMER / VEGETABLE]": crop_subject,
-        "[WHAT VIEWERS SHOULD UNDERSTAND]": f"{topic_str} की पूरी जानकारी, सही समय, बीज, खाद और बंपर पैदावार का फॉर्मूला",
-        "[YIELD / QUANTITY / YEAR / PRICE]": f"{hook_num} | 2026",
-        "[AUTO / CROP TEXT / FARMER COMPARISON / BEFORE AFTER / MYSTERY CROPS]": "AUTO (Pick most impactful high-CTR composition)",
+        "[CORE VISUAL SUBJECT / METAPHOR / BOOK ARTIFACT]": visual_subject,
+        "[MAIN VISUAL SUBJECT]": visual_subject,
+        "[MAIN SUBJECT]": visual_subject,
+        "[MAIN VISUAL]": visual_subject,
+        "[WHAT VIEWERS WILL QUESTION]": existential_insight,
+        "[KEY WORD / STAT]": hook_num,
         "[KEY WORD]": key_word,
         "[KEY PHRASE]": key_word,
         "{highlight}": subheadline,
@@ -210,16 +223,14 @@ def populate_prompt_template(
         "[TOPIC LABEL]": badge_label,
         "[SUPPORTING TEXT]": support_text,
         "{benefit}": support_text,
-        "[MAIN VISUAL]": f"Indian farmer with modern agricultural setup and healthy lush {crop_subject}",
-        "[MAIN SUBJECT]": f"proud Indian farmer in traditional attire showcasing high-yield results of {crop_subject}",
-        "[SETTING]": "fertile agricultural fields in India with modern farming under bright cinematic daylight",
-        "[SECONDARY VISUAL]": f"close-up of top-grade {crop_subject} and official trusted guidance",
-        "[VISUAL 1]": f"close-up of lush healthy soil and seeds for {topic_str}",
-        "[VISUAL 2]": f"modern cultivation and nutrition setup for {topic_str}",
-        "[VISUAL 3]": f"happy farmer reviewing top-grade high-yield harvest of {crop_subject}",
-        "[IMPORTANT DETAIL]": f"modern high-yield {crop_subject} with robust growth",
-        "[BEFORE VISUAL]": f"traditional low-yield struggling {crop_subject} with yellowing leaves and worried farmer",
-        "[AFTER VISUAL]": f"modern prosperous bumper harvest of {crop_subject} with smiling proud Indian farmer",
+        "[SETTING]": "dark cinematic cosmic void with dramatic volumetric rim lighting and subtle mysterious atmospheric haze",
+        "[SECONDARY VISUAL]": "illuminated ancient philosophical manuscript and quantum wave breakdown",
+        "[VISUAL 1]": "shattering illusion of ordinary perception",
+        "[VISUAL 2]": "quantum code and hidden psychological wiring",
+        "[VISUAL 3]": "the mind-expanding revelation unlocked",
+        "[IMPORTANT DETAIL]": "the glowing tear in reality exposing the hidden mechanism",
+        "[BEFORE VISUAL]": "the comfortable blind illusion of ordinary life in dull monochromatic tones",
+        "[AFTER VISUAL]": "the mind-shattering glowing revelation of reality unlocked in vivid amber and cosmic cyan",
         "[VS OR COMPARISON BADGE]": "VS",
         "{channel_name}": channel_name,
         "{style_notes}": meta.get("thumbnail_image_prompt") or "",

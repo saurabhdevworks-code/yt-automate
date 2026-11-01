@@ -1,187 +1,47 @@
 {
   "channel": {
-    "name": "Kisan Badlega",
-    "tagline": "किसान बदलेगा तो देश बदलेगा!",
-    "niche": "Indian Agriculture, Farming, New Crop Varieties, Smart Farming, Government Schemes and Agriculture News",
-    "language": "Hindi with English keywords"
+    "name": "BEYOND THE OBVIOUS",
+    "tagline": "Explore ideas that shatter ordinary thinking.",
+    "niche": "Mind-Bending Book Summaries, Deep Philosophy, Dark Psychology, Craziest Theories & Human Consciousness",
+    "language": "English (US / Global)"
   },
 
   "title_rules": {
-    "max_length": 85,
-    "language": "Hindi with English branding",
-    "structure": "[मुख्य विषय / जिज्ञासा हुक] | [Kisan Badlega / फायदा]",
-    "tone": "Engaging, Click-worthy, Credible, High CTR (No fake clickbait)",
+    "max_length": 80,
+    "language": "English",
+    "structure": "[Shocking Premise / Unsolved Paradox] | [Book / Core Theory]",
+    "tone": "Mysterious, High-CTR, Curiosity-Driven, Philosophical, Thought-Provoking (No cheap fake clickbait)",
     "guidelines": [
-      "Use the main SEO keyword naturally.",
-      "Highlight farmer benefits, yield, profit or important information.",
-      "Use numbers, income figures and curiosity hooks when relevant.",
-      "Mention the crop variety, scheme or farming technique.",
-      "Avoid misleading income or production claims.",
-      "Keep the title readable and under 85 characters."
+      "Use intense emotional or philosophical hooks (e.g. 'Why Reality Might Be a Code', 'The Law Most People Fear', 'Why Aliens Won't Contact Us').",
+      "Mention the book name or famous theory if it carries strong authority.",
+      "Keep the title punchy, mobile-first, and under 80 characters.",
+      "Trigger existential curiosity or a paradigm shift in the viewer's mind."
     ],
     "examples": [
-      "सोलर पंप योजना 2026: 80% सब्सिडी के लिए ऐसे करें आवेदन | Kisan Badlega",
-      "ड्रिप सिंचाई से कम पानी में बंपर पैदावार | Kisan Badlega",
-      "पॉलीहाउस खेती का पूरा सच: लागत और कमाई जानें | Kisan Badlega"
+      "The Dark Forest Theory: Why We Should Pray Aliens Never Answer",
+      "The 48 Laws of Power: The Darkest Psychology Rules People Hide",
+      "The Simulation Argument: Why Physicists Think Reality Is Not Real",
+      "Thinking, Fast and Slow: The Dangerous Brain Glitch That Controls You",
+      "The Egg Theory: What If Every Human Is Actually Just One Person?"
     ]
   },
 
   "description_rules": {
-    "language": "Hindi with relevant English keywords",
+    "language": "English",
     "structure": [
-      "intro_hook",
-      "viewer_benefit",
-      "key_highlights",
-      "practical_guide",
-      "cost_profit_subsidy",
-      "engagement_cta",
-      "social_media_links",
-      "hashtags",
-      "important_playlists",
-      "disclaimer",
-      "copyright_disclaimer"
+      "hook_summary",
+      "core_question",
+      "key_takeaways",
+      "chapters",
+      "cta",
+      "hashtags"
     ],
-
-    "intro_hook": "स्वागत है 'Kisan Badlega' पर! इस वीडियो में हम बात करेंगे: {topic} के बारे में।",
-
-    "viewer_benefit": "अगर आप खेती से ज्यादा कमाई करना चाहते हैं तो यह वीडियो आपके लिए बहुत उपयोगी है।",
-
+    "intro_hook": "Welcome to BEYOND THE OBVIOUS. In this deep dive, we explore: {topic}.",
     "key_sections": [
-      "📌 वीडियो के मुख्य बिंदु (Key Highlights)",
-      "💡 आधुनिक तकनीक और सही तरीका (Step-by-Step Practical Guide)",
-      "🌱 उन्नत किस्में, बीज और खेती की तकनीक",
-      "💰 कुल लागत, कमाई और सरकारी सब्सिडी (Subsidy & Profit Calculation)",
-      "🚜 किसानों के लिए महत्वपूर्ण सुझाव",
-      "🔔 चैनल को Subscribe करें: किसान बदलेगा तो देश बदलेगा! 🌾"
-    ],
-
-    "engagement_cta": [
-      "👉 वीडियो को LIKE 👍 करें",
-      "👉 अपने किसान भाइयों के साथ SHARE करें",
-      "👉 चैनल Kisan Badlega को SUBSCRIBE जरूर करें"
-    ],
-
-    "social_media_section": {
-      "heading": "आप सभी खेती-बाड़ी से जुड़ी और भी महत्वपूर्ण जानकारियों के लिए हमसे जुड़ें👇👇👇",
-      "links": [
-        {
-          "platform": "Facebook",
-          "url": "https://www.facebook.com/kisanbadlega/"
-        },
-        {
-          "platform": "Instagram",
-          "url": "https://www.instagram.com/kisan_badlega/"
-        },
-        {
-          "platform": "Twitter (X)",
-          "url": "https://twitter.com/kisan_badlega"
-        },
-        {
-          "platform": "YouTube",
-          "url": "https://www.youtube.com/c/kisanbadlega"
-        }
-      ]
-    },
-
-    "default_hashtags": [
-      "#किसान_बदलेगा_तो_देश_बदलेगा",
-      "#जय_जवान_जय_किसान",
-      "#KisanBadlega",
-      "#Farming",
-      "#Agriculture",
-      "#TopVarieties",
-      "#KhetiBadi",
-      "#SmartFarming",
-      "#IndianAgriculture"
-    ],
-
-    "playlist_section": {
-      "heading": "👇👇👇 ज़रूर देखें - महत्वपूर्ण वीडियो प्लेलिस्ट 👇👇👇",
-      "playlists": [
-        {
-          "name": "सरसों की टॉप वैरायटी",
-          "url": "https://youtube.com/playlist?list=PLeqweByvS1A3rIYMeyJ2eV4iGVWOm2XjI"
-        },
-        {
-          "name": "नई किस्में",
-          "url": "https://youtube.com/playlist?list=PLeqweByvS1A3trvnJEhqQHpeof_cJaV5T"
-        },
-        {
-          "name": "अत्याधिक कीमती फसलें",
-          "url": "https://youtube.com/playlist?list=PLeqweByvS1A0Vxm38ao1CNZOcbfagMxOU"
-        },
-        {
-          "name": "सर्वाधिक उत्पादन देने वाली किस्में",
-          "url": "https://youtube.com/playlist?list=PLeqweByvS1A3jBDRuK4yS19si5Qg4QK7p"
-        }
-      ]
-    },
-
-    "disclaimer": "📢 डिस्क्लेमर: यह वीडियो केवल शैक्षणिक और सूचनात्मक उद्देश्य के लिए है। किसी भी योजना में आवेदन करने से पहले आधिकारिक वेबसाइट पर नियम जरूर चेक करें। फसल की पैदावार, लागत और मुनाफा मिट्टी, जलवायु, क्षेत्र, बाजार भाव और खेती की तकनीक के अनुसार अलग-अलग हो सकता है।",
-
-    "copyright_disclaimer": "📜 Copyright Disclaimer: Under Section 107 of the Copyright Act 1976, allowance is made for fair use for purposes such as criticism, comment, news reporting, teaching, scholarship, and research. Fair use is permitted by copyright statute that might otherwise be infringing. Non-profit, educational, or personal use tips the balance in favor of fair use.",
-
-    "formatting_rules": [
-      "Use emojis to make the description attractive and readable.",
-      "Keep paragraphs short and farmer-friendly.",
-      "Include relevant keywords naturally without keyword stuffing.",
-      "Always include social media links and important playlists.",
-      "Do not modify the provided URLs.",
-      "Include all standard sections in every description.",
-      "Add topic-specific information in the relevant sections.",
-      "Never invent government subsidy percentages or profit figures."
+      "🧠 The Mind-Bending Premise",
+      "📖 Key Book Insights & Deconstructed Theories",
+      "👁️ Why This Changes How You See Reality",
+      "🔔 Subscribe to BEYOND THE OBVIOUS for weekly mind expansions"
     ]
-  },
-
-  "tags_rules": {
-    "max_tags": 25,
-    "language": "Mix of Hindi & English keywords",
-    "always_include": [
-      "Kisan bdlega",
-      "Kisan Badlega",
-      "Kheti Badi",
-      "Aadhunik Kheti",
-      "Smart Farming India",
-      "Krishi Gyan",
-      "Indian Agriculture",
-      "Kisan Yojana",
-      "Crop Protection",
-      "Organic Farming India"
-    ],
-    "guidance": [
-      "Add specific high-search-volume keywords for the crop, machine or scheme discussed.",
-      "Include Hindi and English variations of the main keyword.",
-      "Include popular search phrases related to the video topic.",
-      "Include crop variety names where applicable.",
-      "Prioritize search relevance over unnecessary tags.",
-      "Never exceed 25 tags.",
-      "Return tags as comma-separated keywords.",
-      "Do not include hashtags in the YouTube tags field."
-    ]
-  },
-
-  "seo_optimization": {
-    "primary_keyword": "Identify the main search keyword from the video topic.",
-    "secondary_keywords": "Identify 5-10 relevant secondary keywords.",
-    "search_intent": "Understand what Indian farmers are searching for.",
-    "audience": "Indian farmers, agriculture students and farming entrepreneurs",
-    "location_focus": "India",
-    "content_style": "Research-based, practical, informative and farmer-friendly",
-    "accuracy_rules": [
-      "Prioritize reliable agricultural research and official government sources.",
-      "Use India-specific farming recommendations.",
-      "Do not make unsupported yield or income claims.",
-      "Mention regional differences wherever necessary.",
-      "Verify government schemes and subsidy information using official sources."
-    ]
-  },
-
-  "output_format": {
-    "1": "SEO Optimized YouTube Titles (3-5 options)",
-    "2": "Complete YouTube Description (Copy-Paste Ready)",
-    "3": "YouTube SEO Tags (Comma Separated, Maximum 25)",
-    "4": "Primary and Secondary Keywords",
-    "5": "Pinned Comment (Engaging Farmer Question)",
-    "6": "Best Thumbnail Text Suggestions (3 Options)"
   }
 }

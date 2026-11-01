@@ -1,27 +1,30 @@
 {
-  "channel_name": "Kisan bdlega",
-  "niche": "Farming and Agriculture",
-  "country": "India",
-  "location": "India",
-  "language": "Hindi",
-  "target_audience": "भारतीय किसान, ग्रामीण युवा और आधुनिक कृषि उद्यमी (Indian Farmers, Rural Youth, and Agri-Entrepreneurs)",
-  "channel_vision": "किसान बदलेगा तो देश बदलेगा - आधुनिक तकनीक, उन्नत बीज, जैविक खेती और सरकारी योजनाओं की सटीक जानकारी आसान हिंदी में।",
-  "video_style": "सरल, आकर्षक और ज्ञानवर्धक हिंदी कृषि गाइड (Engaging Hindi Agriculture Explainer)",
+  "channel_name": "BEYOND THE OBVIOUS",
+  "niche": "Mind-Bending Book Summaries, Deep Philosophy, Dark Psychology & Craziest Theories",
+  "country": "United States",
+  "location": "United States",
+  "language": "English",
+  "target_audience": "USA & Global English viewers seeking profound book insights, dark psychology, consciousness, and mind-bending scientific theories",
+  "channel_vision": "Explore the ideas that shatter ordinary thinking. Deep dives into transformative books, hidden psychological truths, simulation theories, and the craziest paradoxes of human existence.",
+  "video_style": "Cinematic, deep-thought, engaging intellectual storytelling with punchy hooks and profound conclusions",
   "thumbnail_fonts": [
-    "Mukta",
-    "Hind",
+    "Montserrat",
+    "Bebas Neue",
     "Poppins",
-    "Baloo"
+    "Inter"
   ],
   "default_tags": [
-    "Kisan bdlega",
-    "Kisan Badlega",
-    "Kheti Badi",
-    "Aadhunik Kheti",
-    "Smart Farming India",
-    "Krishi Gyan",
-    "Kisan Yojana",
-    "Agriculture Technology India",
-    "Hindi Farming Video"
+    "BEYOND THE OBVIOUS",
+    "Beyond The Obvious",
+    "Book Summary",
+    "Psychology Books",
+    "Craziest Theories",
+    "Philosophy Explained",
+    "Mind Bending Theories",
+    "Simulation Theory",
+    "Deep Thinking",
+    "Dark Psychology",
+    "Fermi Paradox",
+    "Self Improvement Books"
   ]
 }
