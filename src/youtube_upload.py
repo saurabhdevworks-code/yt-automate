@@ -13,6 +13,8 @@ def _clean_env(val: str, key_name: str) -> str:
     val = val.strip().strip("\"'")
     if val.startswith(f"{key_name}="):
         val = val[len(f"{key_name}="):].strip().strip("\"'")
+    # Remove any internal whitespace/newlines that might have crept in from copy-pasting
+    val = "".join(val.split())
     return val
 
 def create_client():
@@ -20,6 +22,12 @@ def create_client():
     values = [_clean_env(os.getenv(k, ""), k) for k in keys]
     if not all(values):
         raise RuntimeError("Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET and YOUTUBE_REFRESH_TOKEN.")
+    
+    # Safe debug info (no secrets leaked)
+    print(f"[AUTH DEBUG] Client ID prefix: {values[0][:20]}... (len: {len(values[0])})")
+    print(f"[AUTH DEBUG] Client Secret length: {len(values[1])}")
+    print(f"[AUTH DEBUG] Refresh Token prefix: {values[2][:10]}... suffix: ...{values[2][-6:]} (len: {len(values[2])})")
+
     creds = Credentials(None, refresh_token=values[2],
         token_uri="https://oauth2.googleapis.com/token", client_id=values[0],
         client_secret=values[1], scopes=SCOPES)
