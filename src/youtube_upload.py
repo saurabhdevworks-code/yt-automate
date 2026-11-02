@@ -7,8 +7,17 @@ from googleapiclient.http import MediaFileUpload
 
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
+def _clean_env(val: str, key_name: str) -> str:
+    if not val:
+        return ""
+    val = val.strip().strip("\"'")
+    if val.startswith(f"{key_name}="):
+        val = val[len(f"{key_name}="):].strip().strip("\"'")
+    return val
+
 def create_client():
-    values = [os.getenv(k) for k in ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")]
+    keys = ("YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN")
+    values = [_clean_env(os.getenv(k, ""), k) for k in keys]
     if not all(values):
         raise RuntimeError("Set YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET and YOUTUBE_REFRESH_TOKEN.")
     creds = Credentials(None, refresh_token=values[2],
