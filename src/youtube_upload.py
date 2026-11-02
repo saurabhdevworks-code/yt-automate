@@ -29,11 +29,11 @@ def upload(video_path, metadata, privacy="private", thumbnail=None):
         raise PermissionError("Public upload blocked by default. Use private/unlisted or deliberately enable ALLOW_PUBLIC_PUBLISH.")
     yt = create_client()
     snippet = {
-        "title": str(metadata.get("title", "Hindi Educational Video"))[:100],
+        "title": str(metadata.get("title", "Educational Video"))[:100],
         "description": str(metadata.get("description", ""))[:5000],
         "categoryId": str(metadata.get("category_id", "27")),
-        "defaultLanguage": "hi",
-        "defaultAudioLanguage": "hi"
+        "defaultLanguage": metadata.get("language_code", "en"),
+        "defaultAudioLanguage": metadata.get("language_code", "en")
     }
     tags = metadata.get("tags", [])
     if isinstance(tags, str):

@@ -29,7 +29,7 @@ def rss_items(urls, per_feed=25):
             print(f"WARNING: RSS feed failed: {url}: {exc}")
     return items
 
-def wikipedia_search(query, language="hi", limit=8):
+def wikipedia_search(query, language="en", limit=8):
     endpoint = f"https://{language}.wikipedia.org/w/api.php"
     try:
         response = requests.get(endpoint, params={
@@ -53,21 +53,22 @@ def wikipedia_search(query, language="hi", limit=8):
 def discover_topics(settings):
     items = rss_items(settings.get("rss_feeds", []))
 
-    # Wikipedia terms for Indian agriculture
-    wiki_lang = settings.get("wikipedia_language", "hi")
-    search_terms = settings.get("wikipedia_search_terms", ["भारत में कृषि", "जैविक खेती", "स्मार्ट फार्मिंग"])
+    wiki_lang = settings.get("wikipedia_language", "en")
+    search_terms = settings.get("wikipedia_search_terms", [
+        "Simulation hypothesis", "Fermi paradox", "Cognitive bias", "Dark psychology", "Existentialism"
+    ])
     for term in search_terms[:3]:
         items += wikipedia_search(term, language=wiki_lang, limit=4)
 
-    # Keywords to score and prioritize top farming topics
+    # Keywords to score and prioritize top intellectual topics
     keywords = [
-        "किसान", "खेती", "कृषि", "फसल", "बीज", "खाद", "योजना", "सिंचाई", "उत्पादन",
-        "kisan", "farming", "agriculture", "crop", "soil", "organic", "tractor", "yield"
+        "psychology", "philosophy", "theory", "paradox", "brain", "consciousness",
+        "simulation", "mind", "science", "universe", "existential", "behavior"
     ]
     for item in items:
         body = f"{item['title']} {item['summary']}".lower()
         item["score"] = sum(2 for kw in keywords if kw.lower() in body) + (1 if item.get("published") else 0)
-        item["score_note"] = "Relevance score based on farming and agriculture niche."
+        item["score_note"] = "Relevance score based on channel niche."
 
     items.sort(key=lambda item: (item["score"], bool(item.get("published"))), reverse=True)
     return items[:max(1, int(settings.get("max_topics", 10)))]

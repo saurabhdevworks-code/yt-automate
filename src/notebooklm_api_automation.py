@@ -21,13 +21,33 @@ def main():
     parser.add_argument("--storage-state", default="storage_state.json")
     parser.add_argument("--output", default="output/notebooklm")
     parser.add_argument("--timeout-minutes", type=int, default=75)
-    parser.add_argument("--title", default="AI Hindi Video Overview")
+    parser.add_argument("--title", default="AI Video Overview")
+    parser.add_argument("--language", default=None, help="Output language code (e.g. en, hi)")
     args = parser.parse_args()
 
     storage_path = str(Path(args.storage_state).resolve())
     out_dir = Path(args.output).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     target_mp4 = out_dir / "notebooklm_video.mp4"
+
+    # Resolve target language (priority: CLI arg > settings.json > channel_context.json > 'en')
+    target_lang = args.language
+    if not target_lang:
+        for cfg_file in [Path("config/settings.json"), Path("context/channel_context.json")]:
+            if cfg_file.exists():
+                try:
+                    cfg_data = json.loads(cfg_file.read_text(encoding="utf-8"))
+                    raw_lang = cfg_data.get("language", "").lower()
+                    if "hindi" in raw_lang or raw_lang == "hi":
+                        target_lang = "hi"
+                    elif "en" in raw_lang:
+                        target_lang = "en"
+                    if target_lang:
+                        break
+                except Exception:
+                    pass
+    if not target_lang:
+        target_lang = "en"
 
     # [RESUME CHECK] If video already exists from a previous step / run, reuse it!
     if target_mp4.exists() and target_mp4.stat().st_size > 50000:
@@ -38,7 +58,7 @@ def main():
         return
 
     # Use title from metadata if available
-    if args.title == "AI Hindi Video Overview" and Path("output/metadata.json").exists():
+    if args.title == "AI Video Overview" and Path("output/metadata.json").exists():
         try:
             meta = json.loads(Path("output/metadata.json").read_text(encoding="utf-8"))
             args.title = str(meta.get("title", args.title))[:50]
@@ -85,14 +105,14 @@ def main():
     time.sleep(5)
 
     # 4. Generate Video (Trigger and wait) with automatic rate-limit cooldown handling
-    print(f"[4/5] Triggering Hindi Video Overview generation (max wait: {args.timeout_minutes}m)...")
+    print(f"[4/5] Triggering Video Overview generation in '{target_lang}' (max wait: {args.timeout_minutes}m)...")
     prompt_file = str(Path(args.prompt).resolve())
     timeout_sec = args.timeout_minutes * 60
     
     gen_cmd = [
         "notebooklm", "--storage", storage_path,
         "generate", "video",
-        "--language", "hi",
+        "--language", target_lang,
         "--wait",
         "--timeout", str(timeout_sec)
     ]
@@ -113,11 +133,11 @@ def main():
 
         # Fallback: if server rejected custom prompt file, retry with default prompt over the ready sources
         if ("invalid argument" in combined_err.lower() or "rpc_code=3" in combined_err.lower()) and "--prompt-file" in gen_cmd:
-            print("\n[FALLBACK] Custom prompt rejected by server. Retrying with direct Hindi generation...")
+            print(f"\n[FALLBACK] Custom prompt rejected by server. Retrying with direct generation in '{target_lang}'...")
             fallback_cmd = [
                 "notebooklm", "--storage", storage_path,
                 "generate", "video",
-                "--language", "hi",
+                "--language", target_lang,
                 "--wait",
                 "--timeout", str(timeout_sec)
             ]

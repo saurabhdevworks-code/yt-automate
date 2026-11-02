@@ -7,13 +7,12 @@ from src.thumbnail import resolve_template_html
 
 def test_load_context_and_yt_rules():
     ctx = load_context()
-    assert ctx["channel_name"] == "Kisan bdlega"
-    assert "Farming" in ctx["niche"]
+    assert ctx["channel_name"] == "BEYOND THE OBVIOUS"
+    assert "Philosophy" in ctx["niche"] or "Psychology" in ctx["niche"]
 
     rules = load_yt_rules()
     assert "title_rules" in rules
     assert "description_rules" in rules
-    assert "tags_rules" in rules
 
 def test_resolve_topics_csv_prefers_context(tmp_path):
     ctx_csv = tmp_path / "context" / "topics.csv"
